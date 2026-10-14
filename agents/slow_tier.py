@@ -12,7 +12,7 @@ import re
 
 import requests
 
-from fast_tier import OLLAMA_URL
+from fast_tier import OLLAMA_URL, record_usage
 
 DEFAULT_MODEL = os.environ.get("OPSMIND_SLOW_MODEL", "qwen2.5:7b")
 
@@ -150,7 +150,9 @@ def ask_model(model, fast_result, knowledge=None, system_prompt=None):
         ],
     })
     r.raise_for_status()
-    return r.json()["message"]["content"]
+    body = r.json()
+    record_usage(body)
+    return body["message"]["content"]
 
 
 def diagnose(fast_result, model=DEFAULT_MODEL, max_attempts=2, knowledge=None,

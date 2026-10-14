@@ -75,6 +75,33 @@ def _check(fault, container, db, app_port):
     return None, "human-only fix: not auto-recoverable"
 
 
+def disk_fraction(container):
+    r = subprocess.run(["docker", "exec", container, "df", "-B1", "--output=size,used",
+                        "/var/lib/postgresql/data"], capture_output=True, text=True)
+    try:
+        size, used = (int(x) for x in r.stdout.splitlines()[-1].split())
+        return used / size
+    except (ValueError, IndexError):
+        return None
+
+
+def fault_present(fault, container, db, app_port):
+    """Is the injected fault STILL in effect right now? (True/False, or None for event faults
+    like OOM/CPU that only exist as a rate over a sampling window). Used to exclude trials where
+    the fault vanished (e.g. the container restarted) before or while the system sampled it."""
+    if fault == "network-partition":
+        info = _docker_json(["inspect", container])
+        return bool(info) and not info[0]["NetworkSettings"]["Networks"]
+    if fault == "dependency-down":
+        return container_status(container) not in (None, "running")
+    if fault == "config-regression":
+        return deploy.read_live() != deploy.GOOD_DEFAULT and not app_ok(app_port)
+    if fault == "disk-full":
+        frac = disk_fraction(container)
+        return frac is not None and frac >= 0.95
+    return None
+
+
 def recovered(fault, container, db, app_port, wait=10):
     """Poll up to `wait` seconds (state can lag a moment after a fix). (bool|None, detail)."""
     deadline = time.monotonic() + wait

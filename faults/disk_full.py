@@ -185,6 +185,15 @@ def main():
     kind, detail, filled, after_write = "not_attempted", "", None, None
     t_attempt = None
     try:
+        # Without this, at exactly 0 bytes free the WAL writer can PANIC ("could not write to
+        # pg_wal/xlogtemp"), Postgres crash-loops and the container restart wipes the tmpfs
+        # volume, erasing the fault before anything can observe it. Switching to a fresh WAL
+        # segment and checkpointing first makes the full state survivable.
+        pre = connect(args)
+        with pre.cursor() as cur:
+            cur.execute("SELECT pg_switch_wal()")
+            cur.execute("CHECKPOINT")
+        pre.close()
         free = mount_usage(args.container)["avail"]
         fill_bytes = free - args.headroom_mb * 2**20
         if fill_bytes <= 0:
