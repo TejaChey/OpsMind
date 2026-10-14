@@ -73,6 +73,24 @@ class FloorForcesEscalation(unittest.TestCase):
     def test_disk_usage_unreadable_does_not_force(self):
         self.assertNotForced(sig(write_failed=False, data_disk_percent_used=None))
 
+    # ---- Network partition: host cannot connect BUT Postgres is ready inside ----
+    def test_partition_forces(self):
+        self.assertForced(sig(db_connect_ok=False, pg_ready_inside=True))
+
+    def test_connect_failed_and_not_ready_inside_is_not_this_floor(self):
+        # Postgres itself is down/restarting: a different incident, not a partition.
+        self.assertNotForced(sig(db_connect_ok=False, pg_ready_inside=False))
+
+    def test_connect_failed_ready_unknown_does_not_force(self):
+        self.assertNotForced(sig(db_connect_ok=False, pg_ready_inside=None))
+        self.assertNotForced(sig(db_connect_ok=False))
+
+    def test_connect_ok_never_forces(self):
+        self.assertNotForced(sig(db_connect_ok=True, pg_ready_inside=True))
+
+    def test_connect_probe_unknown_does_not_force(self):
+        self.assertNotForced(sig(db_connect_ok=None, pg_ready_inside=True))
+
     # ---- Older records without CPU/disk keys must still work ----
     def test_old_oom_only_record_without_new_keys(self):
         self.assertForced({"oom_kill_delta": 2, "window_seconds": 30, "db_connect_ok": True})
@@ -93,6 +111,7 @@ class FloorForcesEscalation(unittest.TestCase):
         self.assertGreaterEqual(ft.DISK_SEVERITY_FLOOR, 0.8)
         self.assertLessEqual(ft.CPU_SHARE_THRESHOLD, 0.8)
         self.assertLessEqual(ft.DISK_USED_THRESHOLD, 0.95)
+        self.assertGreaterEqual(ft.NET_SEVERITY_FLOOR, 0.8)
 
 
 if __name__ == "__main__":

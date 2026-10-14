@@ -44,6 +44,9 @@ Reply with JSON only:
   throttled the container for hitting that limit. Fields that are absent were not measured.
 - data_disk_percent_used is the fraction (0-1) of the database's data volume in use;
   write_failed=true means a real INSERT just failed, and write_error is the error it returned.
+- db_connect_ok=false means the host's connection attempt failed (db_connect_error says how,
+  db_connect_seconds how long it took); pg_ready_inside=true means Postgres reported itself
+  ready when checked from inside its own container.
 - running_query is the longest-running active query on the database when the window ended
   (pid, duration_seconds, query text); it is context, not proof that the query is the cause.
 - If the facts do not pin down the cause, say so in root_cause and lower the confidence.
@@ -83,7 +86,8 @@ def ask_model(model, fast_result):
                                        "db_connect_error", "cpu_limit_cores",
                                        "cpu_share_of_limit", "cpu_throttled_periods",
                                        "running_query", "data_disk_percent_used",
-                                       "write_failed", "write_error")
+                                       "write_failed", "write_error",
+                                       "db_connect_seconds", "pg_ready_inside")
                    if k in sig},
         "fast_tier_model_output": fast_result["model_raw"],
         "fast_tier_final_decision": fast_result["decision"],
