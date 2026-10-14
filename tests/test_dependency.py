@@ -48,6 +48,16 @@ class MapperPrecedence(unittest.TestCase):
         self.assertEqual(map_action("Restart the service"), Action.RESTART_CONTAINER)
         self.assertEqual(map_action("Restart the container"), Action.RESTART_CONTAINER)
 
+    def test_restarting_the_app_is_not_mapped_to_a_database_restart(self):
+        # The restart target is the database container, so "restart the app" must not map.
+        for t in ("Restart the application", "Restart the app container", "Reboot the web server",
+                  "Restart the API"):
+            self.assertEqual(map_action(t), Action.UNKNOWN_NEEDS_HUMAN, t)
+
+    def test_app_mentioned_only_as_the_symptom_still_maps(self):
+        self.assertEqual(map_action("Restart the database container so the application recovers"),
+                         Action.RESTART_DEPENDENCY)
+
     def test_other_conflicts_still_unknown(self):
         self.assertEqual(map_action("Restart the database and increase the memory limit"),
                          Action.UNKNOWN_NEEDS_HUMAN)

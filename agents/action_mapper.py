@@ -60,6 +60,13 @@ RULES = {
     ],
 }
 
+# Restart actions always act on the monitored database container (chosen in code). If the text
+# names the web app as the thing to restart, the words and the target disagree -> a human decides.
+APP_RESTART = re.compile(
+    r"\b(restart|reboot|bounce|start|bring (up|back))\b.{0,25}"
+    r"\b(app|apps|application|web ?app|web ?server|frontend|api)\b")
+RESTART_ACTIONS = (Action.RESTART_CONTAINER, Action.RESTART_DEPENDENCY)
+
 NEGATION = re.compile(r"\b(do not|don't|dont|never|avoid|without|instead of|rather than)\b")
 
 
@@ -74,6 +81,8 @@ def map_action(proposed_fix):
     if Action.RESTART_DEPENDENCY in matched and Action.RESTART_CONTAINER in matched:
         matched.remove(Action.RESTART_CONTAINER)  # "restart the database container": specific wins
     if len(matched) == 1:
+        if matched[0] in RESTART_ACTIONS and APP_RESTART.search(text):
+            return Action.UNKNOWN_NEEDS_HUMAN
         return matched[0]
     return Action.UNKNOWN_NEEDS_HUMAN  # none matched, or conflicting (e.g. "increase memory and restart")
 
@@ -88,5 +97,6 @@ if __name__ == "__main__":
               "Reconnect the container to its Docker network", "Restore network connectivity",
               "Reconnect the network and restart the container",
               "Restart the database container", "Start the postgres container",
-              "Restart the application", "Restart the database and increase the memory limit"]:
+              "Restart the application", "Restart the database container so the application recovers",
+              "Restart the app container", "Restart the database and increase the memory limit"]:
         print(f"{map_action(s).value:24} <- {s}")
