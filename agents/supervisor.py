@@ -27,7 +27,7 @@ from tools import executor
 from verify import health_check
 
 # Which extra recovery signal verify() must see after an action (None = health + SELECT 1 only).
-EXPECTED_SIGNAL = {"TERMINATE_QUERY": "cpu"}
+EXPECTED_SIGNAL = {"TERMINATE_QUERY": "cpu", "INCREASE_DISK": "disk", "FREE_DISK_SPACE": "disk"}
 
 TRAJECTORY_FILE = Path(__file__).resolve().parent.parent / "trajectories" / "runs.jsonl"
 
