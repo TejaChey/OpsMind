@@ -1,0 +1,7 @@
+{
+  "config-regression": 1.0,
+  "dependency-down": 1.0,
+  "disk-full": 1.0,
+  "network-partition": 1.0,
+  "oom": 1.0
+}

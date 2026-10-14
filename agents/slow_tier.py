@@ -8,6 +8,7 @@ is schema-validated in code; on malformed output we retry once, then fall back t
 import json
 import math
 import os
+import re
 
 import requests
 
@@ -65,6 +66,25 @@ reconnect the container to its Docker network; roll back the web app's config to
 known-good deploy; or flag the incident for human review if none of these applies."""
 
 
+# The deploy-specific parts of SYSTEM_PROMPT: describing `last_deploy` and offering a config
+# rollback only make sense when the input actually contains deploy facts (a rollback needs a
+# deploy to roll back to). Same idea as the executor's no_target guards: offer only what exists
+# for THIS incident. The model stays free to propose anything.
+_DEPLOY_PARAGRAPH = re.compile(r"- last_deploy describes.*?Absent = no deploy history\.\n", re.S)
+_ROLLBACK_ITEM = re.compile(r"roll\s+back\s+the\s+web\s+app's\s+config\s+to\s+the\s+last\s*"
+                            r"known-good\s+deploy;\s*")
+
+
+def build_system_prompt(has_deploy=True):
+    """SYSTEM_PROMPT exactly as written when has_deploy, else without the two deploy pieces."""
+    if has_deploy:
+        return SYSTEM_PROMPT
+    p, n1 = _DEPLOY_PARAGRAPH.subn("", SYSTEM_PROMPT, count=1)
+    p, n2 = _ROLLBACK_ITEM.subn("", p, count=1)
+    assert n1 == 1 and n2 == 1, "deploy-specific prompt pieces not found"
+    return p
+
+
 def validate(raw):
     """Parse and strictly validate model output. Returns dict or raises ValueError."""
     try:
@@ -114,7 +134,8 @@ def ask_model(model, fast_result, knowledge=None, system_prompt=None):
         "fast_tier_final_decision": fast_result["decision"],
         "fast_tier_decision_was_overridden_by_code": fast_result["overridden"],
     }
-    prompt = system_prompt if system_prompt is not None else SYSTEM_PROMPT
+    prompt = (system_prompt if system_prompt is not None
+              else build_system_prompt("last_deploy" in sig))
     if knowledge is not None:
         facts["knowledge_base"] = knowledge
         prompt = prompt + KNOWLEDGE_NOTE

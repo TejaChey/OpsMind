@@ -77,7 +77,8 @@ def attach_deploy_facts(signal):
 
 
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
-             container="opsmind-postgres", dry_run=True, db=None, app_port=None):
+             container="opsmind-postgres", dry_run=True, db=None, app_port=None,
+             knowledge_context=None):
     result = fast_tier.classify(signal, model)
     decision = result["decision"]
     slow = None
@@ -91,7 +92,7 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         print("no action needed")
     else:
         action = "escalate_slow_tier"
-        slow = slow_tier.diagnose(result, slow_model)
+        slow = slow_tier.diagnose(result, slow_model, knowledge=knowledge_context)
         d = slow["diagnosis"]
         print(f"escalated to slow tier ({slow['source']}): {d['root_cause']}")
         print(f"proposed fix (not executed): {d['proposed_fix']} (confidence {d['confidence']})")
@@ -126,6 +127,7 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         "source": result["source"],
         "attempts": result["attempts"],
         "slow_tier": slow,
+        "knowledge_context": knowledge_context,   # exactly what the slow tier was shown (or None)
         "mapped_action": mapped_action,
         "execution": execution,
         "verification": verification,
@@ -148,6 +150,8 @@ def main():
     p.add_argument("--app", default="opsmind-app",
                    help="container name of the web app that depends on the database")
     p.add_argument("--app-port", type=int, default=int(cfg.get("APP_HOST_PORT", 5050)))
+    p.add_argument("--no-knowledge", action="store_true",
+                   help="do not show the slow tier past verified incidents (default: show them)")
     p.add_argument("--model", default=fast_tier.DEFAULT_MODEL)
     p.add_argument("--slow-model", default=slow_tier.DEFAULT_MODEL)
     p.add_argument("--live", action="store_true",
@@ -166,8 +170,12 @@ def main():
               dbname=args.dbname)
     attach_running_query(signal, db)
     attach_deploy_facts(signal)
+    # Knowledge is looked up here (real path) from the code-matched fault type; None if the
+    # signal matches no fault or more than one (see knowledge.context_for).
+    kctx = None if args.no_knowledge else knowledge.context_for(signal)
     record = run_once(signal, args.model, args.slow_model, args.container,
-                      dry_run=not args.live, db=db, app_port=args.app_port)
+                      dry_run=not args.live, db=db, app_port=args.app_port,
+                      knowledge_context=kctx)
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
     # Deliberately here and NOT inside run_once(): the test harness calls run_once() with
     # forced inputs and only labels the record HARNESS_TEST afterwards, so a hook inside

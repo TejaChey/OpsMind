@@ -1,0 +1,40 @@
+{
+  "git_commit": "367a358+uncommitted",
+  "model": "qwen2.5:7b",
+  "knowledge": "on",
+  "prompt_sha256_full": "6523a8490330",
+  "prompt_sha256_no_deploy": "27d0ff497154",
+  "counts": {
+    "oom": {
+      "correct": 6,
+      "n": 6,
+      "fallback": 0,
+      "wrong": []
+    },
+    "disk-full": {
+      "correct": 1,
+      "n": 1,
+      "fallback": 0,
+      "wrong": []
+    },
+    "network-partition": {
+      "correct": 8,
+      "n": 8,
+      "fallback": 0,
+      "wrong": []
+    },
+    "dependency-down": {
+      "correct": 5,
+      "n": 5,
+      "fallback": 0,
+      "wrong": []
+    },
+    "config-regression": {
+      "correct": 8,
+      "n": 8,
+      "fallback": 0,
+      "wrong": []
+    }
+  },
+  "failures": []
+}

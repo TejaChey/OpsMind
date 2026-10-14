@@ -121,7 +121,10 @@ class SupervisorHookPlacement(unittest.TestCase):
         import inspect
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "agents"))
         import supervisor
-        self.assertNotIn("knowledge", inspect.getsource(supervisor.run_once))
+        # No calls into the knowledge module at all inside run_once (the `knowledge_context`
+        # parameter, which only carries what the slow tier is shown, has no dot after "knowledge").
+        self.assertNotIn("knowledge.", inspect.getsource(supervisor.run_once))
+        self.assertNotIn("record_incident", inspect.getsource(supervisor.run_once))
         self.assertIn("knowledge.record_incident", inspect.getsource(supervisor.main))
 
 
