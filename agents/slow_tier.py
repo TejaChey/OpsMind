@@ -51,13 +51,18 @@ Reply with JSON only:
   healthy, 503 = it reports itself unhealthy, null = not measured); app_health_error is what
   the app said; app_container_state and container_state are Docker's state for the app and
   for the database container. Fields that are null could not be measured.
+- last_deploy describes the newest deploy of the web app's config: its id, age_seconds,
+  status_when_deployed (decided by a health check right after it), and
+  changed_vs_last_known_good (each setting that differs from the last deploy that was good).
+  It is context, not proof that the deploy caused the problem. Absent = no deploy history.
 - running_query is the longest-running active query on the database when the window ended
   (pid, duration_seconds, query text); it is context, not proof that the query is the cause.
 - If the facts do not pin down the cause, say so in root_cause and lower the confidence.
 - proposed_fix is a proposal for a human or a later tool; keep it to a single action.
 Available remediation types (choose the one that fits, in your own words): restart the
 container; increase the container's memory limit; terminate a specific problematic query;
-reconnect the container to its Docker network; or flag the incident for human review if none of these applies."""
+reconnect the container to its Docker network; roll back the web app's config to the last
+known-good deploy; or flag the incident for human review if none of these applies."""
 
 
 def validate(raw):
@@ -93,7 +98,8 @@ def ask_model(model, fast_result):
                                        "write_failed", "write_error",
                                        "db_connect_seconds", "pg_ready_inside",
                                        "container_state", "app_health_status",
-                                       "app_container_state", "app_health_error")
+                                       "app_container_state", "app_health_error",
+                                       "last_deploy")
                    if k in sig},
         "fast_tier_model_output": fast_result["model_raw"],
         "fast_tier_final_decision": fast_result["decision"],

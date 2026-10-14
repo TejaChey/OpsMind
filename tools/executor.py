@@ -4,8 +4,8 @@ Order of checks (all in code, fail closed):
   1. action missing from policy / auto_approve false / confidence below threshold
        -> status "blocked_pending_human_approval", nothing happens
   2. dry_run (the default) -> status "would_execute", nothing happens
-  3. otherwise run the action. RESTART_CONTAINER, TERMINATE_QUERY, RECONNECT_NETWORK and
-     RESTART_DEPENDENCY are implemented; any other approved action is reported as "not_implemented" and does nothing.
+  3. otherwise run the action. RESTART_CONTAINER, TERMINATE_QUERY, RECONNECT_NETWORK,
+     RESTART_DEPENDENCY and ROLLBACK_CONFIG are implemented; any other approved action is reported as "not_implemented" and does nothing.
 
 TERMINATE_QUERY needs `db` (host/port/user/password/dbname) to reach Postgres. In dry-run it
 still looks up (read-only) which query it WOULD end, so the log shows the real target.
@@ -15,6 +15,8 @@ from pathlib import Path
 
 import psycopg2
 import yaml
+
+from tools import deploy
 
 POLICY_FILE = Path(__file__).resolve().parent.parent / "policy.yaml"
 
@@ -151,6 +153,35 @@ def restart_dependency(dependencies, dry_run):
         return "failed", f"{type(e).__name__}: {e}", {}
 
 
+def rollback_config(app_port, dry_run):
+    """Re-deploy the last known-good config. The target is chosen in code from the deploy
+    history (newest entry whose code-decided status is 'good'), never from the model's words,
+    and nothing happens if the live config already equals it. Returns (status, reason, evidence).
+    """
+    target, why = deploy.rollback_target()
+    if target is None:
+        return "no_target", why, {}
+    live_before = deploy.read_live()
+    evidence = {"target_deploy_id": target["deploy_id"], "live_config_before": live_before,
+                "target_config": target["config"],
+                "config_diff": deploy.diff(live_before, target["config"])}
+    if dry_run:
+        return "would_execute", f"would roll back to deploy {target['deploy_id']}", evidence
+    if not app_port:
+        return "failed", "no app port given, so the rollback cannot be checked", evidence
+    try:
+        entry = deploy.deploy(target["config"], f"rollback to {target['deploy_id']}", app_port,
+                              kind="rollback", restores=target["deploy_id"])
+    except Exception as e:  # file/permission problems
+        return "failed", f"{type(e).__name__}: {e}", evidence
+    evidence.update({"rollback_deploy_id": entry["deploy_id"], "rollback_status": entry["status"],
+                     "live_config_after": deploy.read_live()})
+    if entry["status"] == "good":
+        return "executed", f"rolled back to deploy {target['deploy_id']}", evidence
+    return "failed", (f"config written but app not healthy afterwards "
+                      f"({entry['health_after']})"), evidence
+
+
 def reconnect_network(name, dry_run):
     """Re-attach the container to its compose network, but only if it is really detached.
     The network name comes from Docker's own compose labels. Returns (status, reason, evidence)."""
@@ -184,7 +215,7 @@ def reconnect_network(name, dry_run):
 
 
 def execute(action, confidence, container, dry_run=True, policy=None, db=None,
-            dependencies=None):
+            dependencies=None, app_port=None):
     """Returns {action, status, reason, dry_run, ...}. Never raises on policy/Docker problems."""
     out = {"action": action, "container": container, "dry_run": dry_run}
     try:
@@ -197,6 +228,9 @@ def execute(action, confidence, container, dry_run=True, policy=None, db=None,
         return {**out, "status": "blocked_pending_human_approval", "reason": reason}
     if action == "TERMINATE_QUERY":
         status, why, evidence = terminate_query(db, dry_run)
+        return {**out, "status": status, "reason": why, **evidence}
+    if action == "ROLLBACK_CONFIG":
+        status, why, evidence = rollback_config(app_port, dry_run)
         return {**out, "status": status, "reason": why, **evidence}
     if action == "RESTART_DEPENDENCY":
         status, why, evidence = restart_dependency(dependencies or [container], dry_run)

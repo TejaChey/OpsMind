@@ -8,6 +8,9 @@ actions:
   TERMINATE_QUERY:          # small and reversible (the client can just re-run the query)
     auto_approve: true
     min_confidence: 0.7
+  ROLLBACK_CONFIG:         # reversible; target = last verified-good deploy, chosen in code
+    auto_approve: true
+    min_confidence: 0.8
   RESTART_DEPENDENCY:      # only ever starts a dependency that is NOT running (code checks)
     auto_approve: true
     min_confidence: 0.7

@@ -18,6 +18,8 @@ With expected_signal="network" (a partition was addressed) the third check is in
 With expected_signal="app" (a dependency was restarted) the third check is instead:
   3. the dependent web app's own /health returns HTTP 200 with db_ok true. This one is retried
      until the overall timeout, because the app may need a moment to see the database again.
+With expected_signal="config" (a config rollback) the app check above must pass AND the live
+config must equal the last known-good deploy's config (compared from the files, in code).
 With expected_signal=None (RESTART_CONTAINER / OOM-style) only checks 1 and 2 run, unchanged.
 Never raises: any problem becomes verified=False with a reason.
 """
@@ -113,6 +115,22 @@ def _check_app(app_port):
     return False, fields, f"app /health is {status} (db_ok={db_ok})"
 
 
+def _config_matches_known_good():
+    """Returns (ok, reason). Fails closed if there is no known-good deploy or on any error."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from tools import deploy
+        good = deploy.last_good(deploy.read_history())
+        if good is None:
+            return False, "no known-good deploy to compare the live config with"
+        live = deploy.read_live()
+        if live != good["config"]:
+            return False, f"live config {live} differs from known-good deploy {good['deploy_id']}"
+        return True, f"live config equals known-good deploy {good['deploy_id']}"
+    except Exception as e:
+        return False, f"could not compare configs: {type(e).__name__}: {e}"
+
+
 def _service_alias_missing(container):
     """Returns (missing_alias_description or None, error or None). Fails closed on errors."""
     try:
@@ -206,8 +224,12 @@ def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, inter
                 result["elapsed_seconds"] = round(time.monotonic() - t0, 2)
                 return result
             app_fields = {}
-            if ok and expected_signal == "app":
+            if ok and expected_signal in ("app", "config"):
                 good, app_fields, why = _check_app(app_port)
+                if good and expected_signal == "config":
+                    good, cfg_why = _config_matches_known_good()
+                    app_fields["config_matches_known_good"] = good
+                    why = f"{why}; {cfg_why}"
                 if good:
                     return {"verified": True, "health_status": health, **app_fields,
                             "elapsed_seconds": round(time.monotonic() - t0, 2),
