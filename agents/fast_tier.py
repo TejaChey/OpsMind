@@ -10,7 +10,9 @@ incident. The model's JSON is validated in code; on malformed output we retry on
 fall back to escalate=true. A deterministic floor then overrides the model and forces
 escalate=true and severity >= 0.8 when EITHER any oom_kill delta > 0 (local models
 under-escalated a real OOM kill) OR cpu_share_of_limit >= 0.8 AND cpu_throttled_periods > 0
-OR write_failed is True OR data_disk_percent_used >= 0.95.
+OR write_failed is True OR data_disk_percent_used >= 0.95 OR (db_connect_ok is False AND
+pg_ready_inside is True: the host cannot connect but Postgres is ready inside its own
+container, i.e. a network partition).
 
 Usage:  python agents/fast_tier.py [--window SECONDS] [--model NAME] [--container NAME]
         (run it, then trigger `python faults/oom.py` or `python faults/cpu_spike.py` from
@@ -36,6 +38,7 @@ CPU_SEVERITY_FLOOR = 0.8
 DATA_DIR = "/var/lib/postgresql/data"   # the capped data volume (see docker-compose.yml)
 DISK_USED_THRESHOLD = 0.95              # fraction of the data volume in use
 DISK_SEVERITY_FLOOR = 0.8
+NET_SEVERITY_FLOOR = 0.8
 PROBE_TABLE = "opsmind_write_probe"
 PROBE_BYTES = 64 * 1024   # big enough to force a real file extension, small enough to be harmless
 DEFAULT_MODEL = os.environ.get("OPSMIND_FAST_MODEL", "qwen2.5:3b")
@@ -66,6 +69,10 @@ Guidance:
   write_failed=true means a real INSERT just failed (write_error says why, e.g. "No space left
   on device"). A nearly full volume or a failed write is a real disk incident.
 - db_connect_ok=false means clients cannot reach the database right now.
+  pg_ready_inside=true means Postgres reports itself ready when asked from inside its own
+  container, so db_connect_ok=false with pg_ready_inside=true points at the network, not at
+  the database process. db_connect_seconds is how long the host's connection attempt took.
+  These two keys can be absent or null when not measured.
 - oom_kill_delta 0, no CPU pressure and db_connect_ok true means no incident: low severity,
   escalate false.
 - Higher severity when oom_kill_delta is above 0, CPU is pinned and throttled, the data volume
@@ -159,6 +166,18 @@ def probe_write(host, port, user, password, dbname):
             pass
 
 
+def read_pg_ready_inside(container, user, dbname):
+    """pg_isready run inside the container (local socket, no network). True/False, or None if
+    it could not be run (e.g. the container is not running)."""
+    r = subprocess.run(["docker", "exec", container, "pg_isready", "-U", user, "-d", dbname],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        return True
+    if r.returncode in (1, 2):   # pg_isready: 1 = rejecting connections, 2 = no response
+        return False
+    return None
+
+
 def probe_connection(host, port, user, password, dbname):
     """(ok, error). A real connect + SELECT 1, not a port check."""
     try:
@@ -182,7 +201,10 @@ def collect_signal(container, host, port, user, password, dbname, window):
     time.sleep(window)
     after = read_oom_kill(container)
     cpu1 = read_cpu(container)
+    t_conn = time.monotonic()
     ok, err = probe_connection(host, port, user, password, dbname)
+    connect_seconds = round(time.monotonic() - t_conn, 3)
+    ready_inside = read_pg_ready_inside(container, user, dbname)
     write_failed, write_error = probe_write(host, port, user, password, dbname)
     limit = cpu1[2]
     cores = (cpu1[0] - cpu0[0]) / 1e6 / (cpu1[3] - cpu0[3])
@@ -200,6 +222,8 @@ def collect_signal(container, host, port, user, password, dbname, window):
         "window_seconds": round(time.time() - t0, 1),
         "db_connect_ok": ok,
         "db_connect_error": err,
+        "db_connect_seconds": connect_seconds,
+        "pg_ready_inside": ready_inside,
     }
 
 
@@ -231,7 +255,8 @@ def validate(raw):
 def ask_model(model, signal):
     keys = ("oom_kill_delta", "window_seconds", "db_connect_ok",
             "cpu_share_of_limit", "cpu_throttled_periods",
-            "data_disk_percent_used", "write_failed", "write_error")
+            "data_disk_percent_used", "write_failed", "write_error",
+            "db_connect_seconds", "pg_ready_inside")
     facts = {k: signal[k] for k in keys if k in signal}
     r = requests.post(f"{OLLAMA_URL}/api/chat", timeout=120, json={
         "model": model,
@@ -259,6 +284,8 @@ def apply_floor(decision, signal):
     disk = signal.get("data_disk_percent_used")  # absent/None -> that condition not met
     if signal.get("write_failed") is True or (disk is not None and disk >= DISK_USED_THRESHOLD):
         floor = max(floor, DISK_SEVERITY_FLOOR)
+    if signal.get("db_connect_ok") is False and signal.get("pg_ready_inside") is True:
+        floor = max(floor, NET_SEVERITY_FLOOR)
     if not floor:
         return decision, False
     final = dict(decision)
