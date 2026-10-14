@@ -12,6 +12,7 @@ class Action(str, Enum):
     RESTART_CONTAINER = "RESTART_CONTAINER"
     INCREASE_MEMORY_LIMIT = "INCREASE_MEMORY_LIMIT"
     TERMINATE_QUERY = "TERMINATE_QUERY"
+    ROLLBACK_CONFIG = "ROLLBACK_CONFIG"
     RESTART_DEPENDENCY = "RESTART_DEPENDENCY"
     RECONNECT_NETWORK = "RECONNECT_NETWORK"
     INCREASE_DISK = "INCREASE_DISK"
@@ -29,6 +30,12 @@ RULES = {
     Action.RESTART_CONTAINER: [
         r"\b(restart|reboot|bounce)\b",
         r"\bre-?start\b",
+    ],
+    Action.ROLLBACK_CONFIG: [
+        r"\b(roll ?back|rollback|revert|undo)\b.{0,40}"
+        r"\b(config\w*|deploy\w*|release|settings?|change|version|port|host)\b",
+        r"\b(restore|redeploy|re-deploy)\b.{0,40}\b(previous|last|known[- ]good|working|old)\b"
+        r".{0,30}\b(config\w*|deploy\w*|version|settings?)\b",
     ],
     Action.RESTART_DEPENDENCY: [   # more specific than RESTART_CONTAINER (see map_action)
         r"\b(start|restart|reboot|bounce|bring (up|back)|recover|revive)\b.{0,40}"
@@ -96,6 +103,8 @@ if __name__ == "__main__":
               "Increase the size of the data volume or remove unnecessary data",
               "Reconnect the container to its Docker network", "Restore network connectivity",
               "Reconnect the network and restart the container",
+              "Roll back the web app's config to the last known-good deploy",
+              "Revert the database port change", "Restore the previous configuration",
               "Restart the database container", "Start the postgres container",
               "Restart the application", "Restart the database container so the application recovers",
               "Restart the app container", "Restart the database and increase the memory limit"]:

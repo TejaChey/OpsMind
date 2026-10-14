@@ -23,13 +23,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `tools` is
 import action_mapper
 import fast_tier
 import slow_tier
-from tools import executor
+from tools import deploy, executor
 from verify import health_check
 
 # Which extra recovery signal verify() must see after an action (None = health + SELECT 1 only).
 EXPECTED_SIGNAL = {"TERMINATE_QUERY": "cpu", "INCREASE_DISK": "disk", "FREE_DISK_SPACE": "disk",
                    "RECONNECT_NETWORK": "network",
-                   "RESTART_DEPENDENCY": "app"}
+                   "RESTART_DEPENDENCY": "app", "ROLLBACK_CONFIG": "config"}
 
 TRAJECTORY_FILE = Path(__file__).resolve().parent.parent / "trajectories" / "runs.jsonl"
 
@@ -62,6 +62,18 @@ def attach_running_query(signal, db):
     return signal
 
 
+def attach_deploy_facts(signal):
+    """Add the newest deploy (id, age, code-decided status, config diff vs the last known-good
+    deploy) as context for the slow tier. Left out when there is no deploy history."""
+    try:
+        facts = deploy.recent_deploy_facts()
+    except Exception:  # context only: never let it break the triage path
+        facts = None
+    if facts:
+        signal["last_deploy"] = facts
+    return signal
+
+
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
              container="opsmind-postgres", dry_run=True, db=None, app_port=None):
     result = fast_tier.classify(signal, model)
@@ -84,7 +96,7 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         mapped_action = action_mapper.map_action(d["proposed_fix"]).value
         print(f"mapped action: {mapped_action}")
         execution = executor.execute(mapped_action, d["confidence"], container, dry_run, db=db,
-                                     dependencies=[container])
+                                     dependencies=[container], app_port=app_port)
         if execution["status"] == "would_execute":
             print(f"would execute {mapped_action} on {container} (dry run, nothing changed)"
                   f" - {execution['reason']}")
@@ -151,6 +163,7 @@ def main():
     db = dict(host=args.host, port=args.port, user=args.user, password=args.password,
               dbname=args.dbname)
     attach_running_query(signal, db)
+    attach_deploy_facts(signal)
     record = run_once(signal, args.model, args.slow_model, args.container,
                       dry_run=not args.live, db=db, app_port=args.app_port)
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
