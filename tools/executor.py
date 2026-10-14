@@ -4,8 +4,8 @@ Order of checks (all in code, fail closed):
   1. action missing from policy / auto_approve false / confidence below threshold
        -> status "blocked_pending_human_approval", nothing happens
   2. dry_run (the default) -> status "would_execute", nothing happens
-  3. otherwise run the action. RESTART_CONTAINER and TERMINATE_QUERY are implemented; any
-     other approved action is reported as "not_implemented" and does nothing.
+  3. otherwise run the action. RESTART_CONTAINER, TERMINATE_QUERY and RECONNECT_NETWORK are
+     implemented; any other approved action is reported as "not_implemented" and does nothing.
 
 TERMINATE_QUERY needs `db` (host/port/user/password/dbname) to reach Postgres. In dry-run it
 still looks up (read-only) which query it WOULD end, so the log shows the real target.
@@ -117,6 +117,33 @@ def terminate_query(db, dry_run, settle=5):
         conn.close()
 
 
+def reconnect_network(name, dry_run):
+    """Re-attach the container to its compose network, but only if it is really detached.
+    The network name comes from Docker's own compose labels. Returns (status, reason, evidence)."""
+    import docker
+    try:
+        c = docker.from_env().containers.get(name)
+        project = c.labels.get("com.docker.compose.project")
+        if not project:
+            return "failed", "container has no compose project label; network unknown", {}
+        network = f"{project}_default"
+        before = sorted(c.attrs["NetworkSettings"]["Networks"])
+        evidence = {"network": network, "networks_before": before}
+        if network in before:
+            return "no_target", f"already connected to {network}", evidence
+        if dry_run:
+            return "would_execute", f"would connect {name} to {network}", evidence
+        docker.from_env().networks.get(network).connect(c)
+        c.reload()
+        after = sorted(c.attrs["NetworkSettings"]["Networks"])
+        evidence["networks_after"] = after
+        if network in after:
+            return "executed", f"connected {name} to {network}", evidence
+        return "failed", f"connect returned but {network} not in {after}", evidence
+    except Exception as e:  # docker.errors.*, connection errors
+        return "failed", f"{type(e).__name__}: {e}", {}
+
+
 def execute(action, confidence, container, dry_run=True, policy=None, db=None):
     """Returns {action, status, reason, dry_run, ...}. Never raises on policy/Docker problems."""
     out = {"action": action, "container": container, "dry_run": dry_run}
@@ -130,6 +157,9 @@ def execute(action, confidence, container, dry_run=True, policy=None, db=None):
         return {**out, "status": "blocked_pending_human_approval", "reason": reason}
     if action == "TERMINATE_QUERY":
         status, why, evidence = terminate_query(db, dry_run)
+        return {**out, "status": status, "reason": why, **evidence}
+    if action == "RECONNECT_NETWORK":
+        status, why, evidence = reconnect_network(container, dry_run)
         return {**out, "status": status, "reason": why, **evidence}
     if dry_run:
         return {**out, "status": "would_execute", "reason": reason}

@@ -8,6 +8,9 @@ actions:
   TERMINATE_QUERY:          # small and reversible (the client can just re-run the query)
     auto_approve: true
     min_confidence: 0.7
+  RECONNECT_NETWORK:       # small and reversible (just re-attaches the container's network)
+    auto_approve: true
+    min_confidence: 0.7
   INCREASE_MEMORY_LIMIT:    # riskier: changes resource limits, so a human decides
     auto_approve: false
     min_confidence: 1.0

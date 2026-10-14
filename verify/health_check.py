@@ -10,6 +10,9 @@ With expected_signal="cpu" (used after TERMINATE_QUERY) a third check runs once 
 With expected_signal="disk" (a disk fault was addressed) the third check is instead:
   3. a real write probe (the fast tier's 64 KB INSERT) succeeds AND the data volume is below
      `disk_threshold` full. If either can't be measured the result is verified=False.
+With expected_signal="network" (a partition was addressed) the third check is instead:
+  3. NET_PROBES real connect + SELECT 1 round trips from the host all succeed and each takes
+     less than `latency_threshold` seconds (latency back near baseline, not just "reachable").
 With expected_signal=None (RESTART_CONTAINER / OOM-style) only checks 1 and 2 run, unchanged.
 Never raises: any problem becomes verified=False with a reason.
 """
@@ -23,6 +26,8 @@ TIMEOUT = 30
 INTERVAL = 2
 CPU_WINDOW = 5
 CPU_THRESHOLD = 0.5   # cpu_share_of_limit must be strictly below this
+NET_PROBES = 3
+NET_LATENCY_THRESHOLD = 1.0   # seconds per connect+SELECT 1 (healthy baseline is ~0.05s)
 DISK_THRESHOLD = 0.90  # data volume usage must be strictly below this (the fast-tier floor is 0.95)
 
 
@@ -78,6 +83,22 @@ def _disk_state(container, host, port, user, password, dbname):
     return usage, write_failed, write_error
 
 
+def _check_network(host, port, user, password, dbname, threshold, probes=NET_PROBES):
+    """Returns (verified, fields, reason): every probe must succeed and be under threshold."""
+    times = []
+    for _ in range(probes):
+        t0 = time.monotonic()
+        ok, err = _select_one(host, port, user, password, dbname)
+        times.append(round(time.monotonic() - t0, 3))
+        if not ok:
+            return False, {"net_latency_seconds": times, "net_latency_threshold": threshold}, (
+                f"probe failed: {err or 'unexpected result'}")
+    fields = {"net_latency_seconds": times, "net_latency_threshold": threshold}
+    if max(times) >= threshold:
+        return False, fields, f"reachable but slow: max {max(times)}s >= {threshold}s"
+    return True, fields, f"{probes} probes succeeded, max {max(times)}s < {threshold}s"
+
+
 def _check_disk(container, host, port, user, password, dbname, threshold):
     """Returns (verified, fields, reason). Fail closed on anything unmeasured."""
     try:
@@ -100,7 +121,7 @@ def _check_disk(container, host, port, user, password, dbname, threshold):
 
 def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, interval=INTERVAL,
            expected_signal=None, cpu_window=CPU_WINDOW, cpu_threshold=CPU_THRESHOLD,
-           disk_threshold=DISK_THRESHOLD):
+           disk_threshold=DISK_THRESHOLD, latency_threshold=NET_LATENCY_THRESHOLD):
     """Returns {verified, elapsed_seconds, health_status, reason} (+ cpu_share_after and
     cpu_threshold when expected_signal="cpu"; disk_percent_used_after, write_failed_after and
     disk_threshold when expected_signal="disk")."""
@@ -128,6 +149,13 @@ def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, inter
                                         f" over {cpu_window}s: CPU did not recover")
                 result["elapsed_seconds"] = round(time.monotonic() - t0, 2)
                 return result
+            if ok and expected_signal == "network":
+                good, fields, why = _check_network(host, port, user, password, dbname,
+                                                   latency_threshold)
+                return {"verified": good, "health_status": health, **fields,
+                        "elapsed_seconds": round(time.monotonic() - t0, 2),
+                        "reason": ("healthy, SELECT 1 succeeded, " if good else "healthy, but ")
+                        + why}
             if ok and expected_signal == "disk":
                 good, fields, why = _check_disk(container, host, port, user, password, dbname,
                                                 disk_threshold)

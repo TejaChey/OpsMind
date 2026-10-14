@@ -52,5 +52,30 @@ class DiskVerification(unittest.TestCase):
         self.assertIn("not measurable", why)
 
 
+def net(results, threshold=1.0):
+    """Run _check_network with stubbed (ok, err) probe results, one per probe."""
+    with mock.patch.object(hc, "_select_one", side_effect=results):
+        return hc._check_network("h", 1, "u", "p", "d", threshold, probes=len(results))
+
+
+class NetworkVerification(unittest.TestCase):
+    def test_passes_when_all_probes_fast(self):
+        self.assertTrue(net([(True, None)] * 3)[0])
+
+    def test_fails_when_any_probe_fails(self):
+        ok, _, why = net([(True, None), (False, "timeout"), (True, None)])
+        self.assertFalse(ok)
+        self.assertIn("probe failed", why)
+
+    def test_fails_when_reachable_but_slow(self):
+        with mock.patch.object(hc.time, "monotonic", side_effect=[0, 2.0, 2.0, 2.1, 2.1, 2.2]):
+            ok, _, why = net([(True, None)] * 3)
+        self.assertFalse(ok)
+        self.assertIn("slow", why)
+
+    def test_unexpected_result_fails(self):
+        self.assertFalse(net([(False, None)])[0])
+
+
 if __name__ == "__main__":
     unittest.main()
