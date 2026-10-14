@@ -8,6 +8,9 @@ actions:
   TERMINATE_QUERY:          # small and reversible (the client can just re-run the query)
     auto_approve: true
     min_confidence: 0.7
+  RESTART_DEPENDENCY:      # only ever starts a dependency that is NOT running (code checks)
+    auto_approve: true
+    min_confidence: 0.7
   RECONNECT_NETWORK:       # small and reversible (just re-attaches the container's network)
     auto_approve: true
     min_confidence: 0.7
