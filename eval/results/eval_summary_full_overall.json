@@ -1,0 +1,10 @@
+{
+  "controls": 10,
+  "false_positives": 0,
+  "false_positive_rate": 0.0,
+  "fp_ci95": "0-0.278",
+  "precision": 1.0,
+  "model_alone_false_positives": 0,
+  "excluded_injector_not_confirmed": 0,
+  "excluded_harness_errors": 0
+}
