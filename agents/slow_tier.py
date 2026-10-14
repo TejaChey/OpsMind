@@ -47,6 +47,10 @@ Reply with JSON only:
 - db_connect_ok=false means the host's connection attempt failed (db_connect_error says how,
   db_connect_seconds how long it took); pg_ready_inside=true means Postgres reported itself
   ready when checked from inside its own container.
+- app_health_status is the HTTP status of a web app that depends on this database (200 =
+  healthy, 503 = it reports itself unhealthy, null = not measured); app_health_error is what
+  the app said; app_container_state and container_state are Docker's state for the app and
+  for the database container. Fields that are null could not be measured.
 - running_query is the longest-running active query on the database when the window ended
   (pid, duration_seconds, query text); it is context, not proof that the query is the cause.
 - If the facts do not pin down the cause, say so in root_cause and lower the confidence.
@@ -87,7 +91,9 @@ def ask_model(model, fast_result):
                                        "cpu_share_of_limit", "cpu_throttled_periods",
                                        "running_query", "data_disk_percent_used",
                                        "write_failed", "write_error",
-                                       "db_connect_seconds", "pg_ready_inside")
+                                       "db_connect_seconds", "pg_ready_inside",
+                                       "container_state", "app_health_status",
+                                       "app_container_state", "app_health_error")
                    if k in sig},
         "fast_tier_model_output": fast_result["model_raw"],
         "fast_tier_final_decision": fast_result["decision"],

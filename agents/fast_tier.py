@@ -12,7 +12,9 @@ escalate=true and severity >= 0.8 when EITHER any oom_kill delta > 0 (local mode
 under-escalated a real OOM kill) OR cpu_share_of_limit >= 0.8 AND cpu_throttled_periods > 0
 OR write_failed is True OR data_disk_percent_used >= 0.95 OR (db_connect_ok is False AND
 pg_ready_inside is True: the host cannot connect but Postgres is ready inside its own
-container, i.e. a network partition).
+container, i.e. a network partition) OR the dependent app's /health returned a non-200 HTTP
+status OR the monitored container is not running. Cgroup facts are None (not 0) when the
+container is not running, because they could not be measured.
 
 Usage:  python agents/fast_tier.py [--window SECONDS] [--model NAME] [--container NAME]
         (run it, then trigger `python faults/oom.py` or `python faults/cpu_spike.py` from
@@ -25,6 +27,8 @@ import os
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import psycopg2
@@ -39,6 +43,7 @@ DATA_DIR = "/var/lib/postgresql/data"   # the capped data volume (see docker-com
 DISK_USED_THRESHOLD = 0.95              # fraction of the data volume in use
 DISK_SEVERITY_FLOOR = 0.8
 NET_SEVERITY_FLOOR = 0.8
+SERVICE_SEVERITY_FLOOR = 0.8   # app /health non-200, or the monitored container not running
 PROBE_TABLE = "opsmind_write_probe"
 PROBE_BYTES = 64 * 1024   # big enough to force a real file extension, small enough to be harmless
 DEFAULT_MODEL = os.environ.get("OPSMIND_FAST_MODEL", "qwen2.5:3b")
@@ -68,6 +73,12 @@ Guidance:
 - data_disk_percent_used is the fraction (0-1) of the database's data volume in use;
   write_failed=true means a real INSERT just failed (write_error says why, e.g. "No space left
   on device"). A nearly full volume or a failed write is a real disk incident.
+- app_health_status is the HTTP status of the dependent web app's /health (200 = healthy;
+  503 = the app says it is unhealthy; null = could not be measured). app_container_state and
+  container_state are Docker's state for the app and for the database container
+  ("running", "exited", ...). container_state other than "running" means the database
+  container itself is down. When container_state is not "running", the cgroup, disk and
+  connection facts are null because they could not be measured.
 - db_connect_ok=false means clients cannot reach the database right now.
   pg_ready_inside=true means Postgres reports itself ready when asked from inside its own
   container, so db_connect_ok=false with pg_ready_inside=true points at the network, not at
@@ -166,6 +177,30 @@ def probe_write(host, port, user, password, dbname):
             pass
 
 
+def container_state(name):
+    """Docker's State.Status for a container ("running", "exited", ...), or None if it does not
+    exist / docker could not be asked."""
+    r = subprocess.run(["docker", "inspect", "--format", "{{.State.Status}}", name],
+                       capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+
+
+def probe_app_health(port, timeout=5):
+    """Real HTTP GET of the app's /health. Returns (http_status or None, error or None):
+    the status is None only when the app could not be reached at all."""
+    try:
+        with urllib.request.urlopen(f"http://localhost:{port}/health", timeout=timeout) as r:
+            return r.status, None
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read().decode()).get("error")
+        except (ValueError, AttributeError):
+            err = None
+        return e.code, err
+    except (urllib.error.URLError, OSError) as e:
+        return None, f"app unreachable: {e}"
+
+
 def read_pg_ready_inside(container, user, dbname):
     """pg_isready run inside the container (local socket, no network). True/False, or None if
     it could not be run (e.g. the container is not running)."""
@@ -194,7 +229,29 @@ def probe_connection(host, port, user, password, dbname):
         return False, str(e).strip()
 
 
-def collect_signal(container, host, port, user, password, dbname, window):
+def collect_signal(container, host, port, user, password, dbname, window, app=None,
+                   app_port=None):
+    """Sample the monitored container (and, if `app`/`app_port` are given, the web app that
+    depends on it). Unmeasurable facts are None, never a made-up 0."""
+    state = container_state(container)
+    extra = {"container_state": state}
+    if app and app_port:
+        app_status, app_err = probe_app_health(app_port)
+        extra.update({"app_container_state": container_state(app),
+                      "app_health_status": app_status, "app_health_error": app_err})
+    if state != "running":
+        ok, err = probe_connection(host, port, user, password, dbname)
+        return {**extra, "data_disk_percent_used": None, "write_failed": None,
+                "write_error": None, "cpu_limit_cores": None, "cpu_avg_cores": None,
+                "cpu_share_of_limit": None, "cpu_throttled_periods": None,
+                "oom_kill_before": None, "oom_kill_after": None, "oom_kill_delta": None,
+                "window_seconds": 0.0, "db_connect_ok": ok, "db_connect_error": err,
+                "db_connect_seconds": None, "pg_ready_inside": None}
+    sig = _collect_running(container, host, port, user, password, dbname, window)
+    return {**extra, **sig}
+
+
+def _collect_running(container, host, port, user, password, dbname, window):
     before = read_oom_kill(container)
     cpu0 = read_cpu(container)
     t0 = time.time()
@@ -256,7 +313,8 @@ def ask_model(model, signal):
     keys = ("oom_kill_delta", "window_seconds", "db_connect_ok",
             "cpu_share_of_limit", "cpu_throttled_periods",
             "data_disk_percent_used", "write_failed", "write_error",
-            "db_connect_seconds", "pg_ready_inside")
+            "db_connect_seconds", "pg_ready_inside", "container_state",
+            "app_health_status", "app_container_state", "app_health_error")
     facts = {k: signal[k] for k in keys if k in signal}
     r = requests.post(f"{OLLAMA_URL}/api/chat", timeout=120, json={
         "model": model,
@@ -275,7 +333,7 @@ def ask_model(model, signal):
 def apply_floor(decision, signal):
     """Deterministic escalation floor. Returns (final_decision, overridden)."""
     floor = 0.0
-    if signal["oom_kill_delta"] > 0:
+    if (signal.get("oom_kill_delta") or 0) > 0:   # absent/None -> not measured -> not met
         floor = max(floor, OOM_SEVERITY_FLOOR)
     share = signal.get("cpu_share_of_limit")  # absent/None -> CPU condition not met
     if (share is not None and share >= CPU_SHARE_THRESHOLD
@@ -286,6 +344,12 @@ def apply_floor(decision, signal):
         floor = max(floor, DISK_SEVERITY_FLOOR)
     if signal.get("db_connect_ok") is False and signal.get("pg_ready_inside") is True:
         floor = max(floor, NET_SEVERITY_FLOOR)
+    status = signal.get("app_health_status")
+    if isinstance(status, int) and not isinstance(status, bool) and status != 200:
+        floor = max(floor, SERVICE_SEVERITY_FLOOR)
+    cstate = signal.get("container_state")
+    if cstate is not None and cstate != "running":
+        floor = max(floor, SERVICE_SEVERITY_FLOOR)
     if not floor:
         return decision, False
     final = dict(decision)
@@ -337,6 +401,9 @@ def main():
     p.add_argument("--dbname", default=cfg.get("POSTGRES_DB"))
     p.add_argument("--window", type=int, default=30,
                    help="seconds between the two cgroup reads")
+    p.add_argument("--app", default="opsmind-app",
+                   help="container name of the web app that depends on the database")
+    p.add_argument("--app-port", type=int, default=int(cfg.get("APP_HOST_PORT", 5050)))
     p.add_argument("--model", default=DEFAULT_MODEL)
     args = p.parse_args()
     if not (args.user and args.password and args.dbname):
@@ -345,7 +412,8 @@ def main():
     print(f"sampling cgroup memory/cpu for {args.window}s (trigger the fault now)...",
           file=sys.stderr)
     signal = collect_signal(args.container, args.host, args.port, args.user,
-                            args.password, args.dbname, args.window)
+                            args.password, args.dbname, args.window,
+                            app=args.app, app_port=args.app_port)
     print(json.dumps(classify(signal, args.model), indent=2))
 
 

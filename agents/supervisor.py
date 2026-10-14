@@ -128,6 +128,9 @@ def main():
     p.add_argument("--dbname", default=cfg.get("POSTGRES_DB"))
     p.add_argument("--window", type=int, default=30,
                    help="seconds between the two cgroup reads")
+    p.add_argument("--app", default="opsmind-app",
+                   help="container name of the web app that depends on the database")
+    p.add_argument("--app-port", type=int, default=int(cfg.get("APP_HOST_PORT", 5050)))
     p.add_argument("--model", default=fast_tier.DEFAULT_MODEL)
     p.add_argument("--slow-model", default=slow_tier.DEFAULT_MODEL)
     p.add_argument("--live", action="store_true",
@@ -140,7 +143,8 @@ def main():
     print(f"sampling cgroup memory/cpu for {args.window}s (trigger the fault now)...",
           file=sys.stderr)
     signal = fast_tier.collect_signal(args.container, args.host, args.port, args.user,
-                                      args.password, args.dbname, args.window)
+                                      args.password, args.dbname, args.window,
+                                      app=args.app, app_port=args.app_port)
     db = dict(host=args.host, port=args.port, user=args.user, password=args.password,
               dbname=args.dbname)
     attach_running_query(signal, db)
