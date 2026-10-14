@@ -1,6 +1,7 @@
 # Knowledge Update Log
 
 ## 2026-10-14
+* **Update**: Recorded verified run 90383827 in [Config regression after deploy](/faults/config-regression.md) (ROLLBACK_CONFIG).
 * **Update**: Recorded verified run a530b6a9 in [Config regression after deploy](/faults/config-regression.md) (ROLLBACK_CONFIG).
 * **Update**: Recorded verified run 0a71189a in [Config regression after deploy](/faults/config-regression.md) (ROLLBACK_CONFIG).
 * **Update**: Recorded verified run c345bb38 in [Dependency down](/faults/dependency-down.md) (RESTART_DEPENDENCY).

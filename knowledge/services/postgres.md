@@ -7,7 +7,7 @@ tags:
 - service
 generated:
   by: opsmind-knowledge-writer/0.1
-  at: '2026-10-14T14:04:36Z'
+  at: '2026-10-14T15:05:04Z'
 ---
 
 The target database container (opsmind-postgres): 256 MB memory, 0.5 CPU, 96 MB data volume.

@@ -44,3 +44,31 @@ CPU is absent (no real CPU incidents in runs.jsonl). Disk has n=1 (not interpret
   no_target guard, and a wrong restart is caught by verification.
 * Leave-one-out removes the replayed run's own outcome, but other runs of the same fault class
   remain as precedent, which is the intended "learning from experience" setting.
+
+---
+
+# Generalisation test: a new variant the knowledge had never seen (2026-10-14)
+
+Real fault, not a replay: `faults/config_regression.py --variant host` deploys a typo'd database
+host (`postgress`). The knowledge bundle held only the `db_port` variant of this fault. The app's
+error ("could not translate host name") also resembles the dependency-down error. Dry-run
+supervisor, 3 runs per condition, production prompt, slow model qwen2.5:7b, temperature 0.
+
+| condition | proposal (3/3 each) | mapped | correct? |
+|---|---|---|---|
+| knowledge ON (production default) | "Roll back the web app's config to the last known-good deploy" | ROLLBACK_CONFIG | yes |
+| knowledge OFF (`--no-knowledge`) | "Reconnect the container to its Docker network" | RECONNECT_NETWORK | no |
+
+Notes: with knowledge OFF the diagnosis itself was right ("DNS resolution failure for the
+database") but the remedy was wrong; the executor's `no_target` guard made it harmless, but the
+incident stays unresolved with no human flagged. One live run with knowledge ON then rolled the
+config back (`db_host` postgress -> postgres), passed verification (app 200 + live config equals
+known-good), and was recorded in the knowledge bundle automatically. The standing regression
+gate still passes with these incidents added (35 real incidents, all faults 100%).
+
+Limits: n=3 per condition (deterministic at temperature 0, so repeats add little); ONE new
+variant of ONE fault class, whose deploy facts have the same shape as the known variant, so this
+is *near* generalisation. Not tested: a brand-new fault type, a within-class case where the
+precedent's remedy would be wrong, or a variant whose signals match a different fault node.
+Consistent with experiment finding 5, the model most likely copies the matching precedent's
+remedy; here that is the right thing, which is exactly the situation where it helps.

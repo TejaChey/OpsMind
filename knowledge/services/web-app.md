@@ -7,7 +7,7 @@ tags:
 - service
 generated:
   by: opsmind-knowledge-writer/0.1
-  at: '2026-10-14T14:04:36Z'
+  at: '2026-10-14T15:05:04Z'
 ---
 
 A small Flask service (opsmind-app) whose /health does a real database round trip; its config is deployed from a file.
