@@ -11,6 +11,12 @@ actions:
   INCREASE_MEMORY_LIMIT:    # riskier: changes resource limits, so a human decides
     auto_approve: false
     min_confidence: 1.0
+  INCREASE_DISK:           # capacity change: a human decides
+    auto_approve: false
+    min_confidence: 1.0
+  FREE_DISK_SPACE:         # deletes data: human-only, never auto (brief section 7)
+    auto_approve: false
+    min_confidence: 1.0
   NO_ACTION:
     auto_approve: false
     min_confidence: 1.0
