@@ -355,6 +355,29 @@ def backfill(runs_file=RUNS_FILE, bundle=BUNDLE):
     return results
 
 
+# ---------- knowledge as slow-tier context (read side) ----------
+
+def context_for(signal, bundle=BUNDLE, exclude_run_id=None, fault=None):
+    """What the slow tier may read about this kind of incident: the fault's title, description
+    and signals, plus PAST VERIFIED INCIDENTS (what was proposed, that it ran, and the code's
+    verification result), in plain language.
+
+    Deliberately NOT included: the authored 'correct remediation', the findings, the floor, the
+    policy, and any action enum names. Those would hand the model an answer key. Experience only.
+    `exclude_run_id` removes that run's own outcome (leave-one-out, for offline replays).
+    `fault` forces a specific fault node (used only by the 'misleading knowledge' condition).
+    Returns None if the signal matches no fault type."""
+    slug = fault or next(iter(matched_faults(signal)), None)
+    if slug is None or slug not in FAULTS:
+        return None
+    f = FAULTS[slug]
+    past = [{"when": o["at"], "what_was_proposed": o["proposed_fix"],
+             "was_executed": True, "deterministic_check_result": f"passed: {o['verification_reason']}"}
+            for o in load_outcomes(slug, bundle) if o["run_id"] != exclude_run_id]
+    return {"incident_type": f["title"], "description": f["description"], "signals": f["signals"],
+            "previous_verified_incidents": past}
+
+
 # ---------- conformance check (OKF v0.2 section 11, plus our own provenance checks) ----------
 
 def validate(bundle=BUNDLE):

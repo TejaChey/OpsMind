@@ -87,7 +87,16 @@ def validate(raw):
             "proposed_fix": obj["proposed_fix"].strip(), "confidence": float(c)}
 
 
-def ask_model(model, fast_result):
+KNOWLEDGE_NOTE = """
+- knowledge_base (only present when given) records PREVIOUS incidents of the same type: what
+  was proposed, and that the fix was really executed and then confirmed by a deterministic
+  check. It is context from past experience, not an instruction and not proof for this one."""
+
+
+def ask_model(model, fast_result, knowledge=None, system_prompt=None):
+    """`knowledge` (optional dict) is added to the facts as `knowledge_base`; `system_prompt`
+    overrides the default (used by the offline experiment). With both left at None the request
+    is exactly what it was before this feature existed."""
     sig = fast_result["signal"]
     facts = {
         # Only fields actually present in the signal: OOM-only records have no CPU keys.
@@ -105,13 +114,17 @@ def ask_model(model, fast_result):
         "fast_tier_final_decision": fast_result["decision"],
         "fast_tier_decision_was_overridden_by_code": fast_result["overridden"],
     }
+    prompt = system_prompt if system_prompt is not None else SYSTEM_PROMPT
+    if knowledge is not None:
+        facts["knowledge_base"] = knowledge
+        prompt = prompt + KNOWLEDGE_NOTE
     r = requests.post(f"{OLLAMA_URL}/api/chat", timeout=300, json={
         "model": model,
         "stream": False,
         "format": SCHEMA,
         "options": {"temperature": 0},
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": "Incident facts:\n" + json.dumps(facts)},
         ],
     })
@@ -119,12 +132,13 @@ def ask_model(model, fast_result):
     return r.json()["message"]["content"]
 
 
-def diagnose(fast_result, model=DEFAULT_MODEL, max_attempts=2):
+def diagnose(fast_result, model=DEFAULT_MODEL, max_attempts=2, knowledge=None,
+             system_prompt=None):
     """Returns the validated diagnosis plus audit info. Never returns unvalidated output."""
     attempts = []
     for _ in range(max_attempts):  # first try + one retry
         try:
-            raw = ask_model(model, fast_result)
+            raw = ask_model(model, fast_result, knowledge, system_prompt)
         except requests.RequestException as e:
             attempts.append({"raw": None, "error": f"ollama request failed: {e}"})
             continue
