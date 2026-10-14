@@ -7,6 +7,9 @@ With expected_signal="cpu" (used after TERMINATE_QUERY) a third check runs once 
   3. CPU share of the limit, re-sampled over `cpu_window` seconds, is back below
      `cpu_threshold`. If the share can't be measured (no CPU limit, unreadable cgroup) the
      result is verified=False: fail closed.
+With expected_signal="disk" (a disk fault was addressed) the third check is instead:
+  3. a real write probe (the fast tier's 64 KB INSERT) succeeds AND the data volume is below
+     `disk_threshold` full. If either can't be measured the result is verified=False.
 With expected_signal=None (RESTART_CONTAINER / OOM-style) only checks 1 and 2 run, unchanged.
 Never raises: any problem becomes verified=False with a reason.
 """
@@ -20,6 +23,7 @@ TIMEOUT = 30
 INTERVAL = 2
 CPU_WINDOW = 5
 CPU_THRESHOLD = 0.5   # cpu_share_of_limit must be strictly below this
+DISK_THRESHOLD = 0.90  # data volume usage must be strictly below this (the fast-tier floor is 0.95)
 
 
 def _container_health(container):
@@ -64,10 +68,42 @@ def _cpu_share(container, window):
     return ((u1 - u0) / 1e6 / (t1 - t0)) / limit, None
 
 
+def _disk_state(container, host, port, user, password, dbname):
+    """(usage fraction or None, write_failed or None, write_error), measured with the same
+    functions the fast tier uses to detect the fault."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "agents"))
+    import fast_tier
+    usage = fast_tier.read_data_disk(container)
+    write_failed, write_error = fast_tier.probe_write(host, port, user, password, dbname)
+    return usage, write_failed, write_error
+
+
+def _check_disk(container, host, port, user, password, dbname, threshold):
+    """Returns (verified, fields, reason). Fail closed on anything unmeasured."""
+    try:
+        usage, write_failed, write_error = _disk_state(container, host, port, user, password,
+                                                       dbname)
+    except Exception as e:  # subprocess/import problems
+        return False, {}, f"disk state not measurable: {type(e).__name__}: {e}"
+    fields = {"disk_percent_used_after": usage, "write_failed_after": write_failed,
+              "disk_threshold": threshold}
+    if write_failed is None:
+        return False, fields, f"write probe could not run: {write_error}"
+    if write_failed:
+        return False, fields, f"write probe still fails: {write_error}"
+    if usage is None:
+        return False, fields, "write probe ok, but disk usage not measurable"
+    if usage >= threshold:
+        return False, fields, f"write probe ok, but disk usage {usage} >= {threshold}"
+    return True, fields, f"write probe succeeded and disk usage {usage} < {threshold}"
+
+
 def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, interval=INTERVAL,
-           expected_signal=None, cpu_window=CPU_WINDOW, cpu_threshold=CPU_THRESHOLD):
+           expected_signal=None, cpu_window=CPU_WINDOW, cpu_threshold=CPU_THRESHOLD,
+           disk_threshold=DISK_THRESHOLD):
     """Returns {verified, elapsed_seconds, health_status, reason} (+ cpu_share_after and
-    cpu_threshold when expected_signal="cpu")."""
+    cpu_threshold when expected_signal="cpu"; disk_percent_used_after, write_failed_after and
+    disk_threshold when expected_signal="disk")."""
     t0 = time.monotonic()
     health, reason = None, "timed out before container reported health"
     while True:
@@ -92,6 +128,13 @@ def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, inter
                                         f" over {cpu_window}s: CPU did not recover")
                 result["elapsed_seconds"] = round(time.monotonic() - t0, 2)
                 return result
+            if ok and expected_signal == "disk":
+                good, fields, why = _check_disk(container, host, port, user, password, dbname,
+                                                disk_threshold)
+                return {"verified": good, "health_status": health, **fields,
+                        "elapsed_seconds": round(time.monotonic() - t0, 2),
+                        "reason": ("healthy, SELECT 1 succeeded, " if good else "healthy, but ")
+                        + why}
             if ok:
                 return {"verified": True, "elapsed_seconds": round(time.monotonic() - t0, 2),
                         "health_status": health, "reason": "healthy and SELECT 1 succeeded"}
