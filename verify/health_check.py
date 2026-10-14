@@ -15,11 +15,17 @@ With expected_signal="network" (a partition was addressed) the third check is in
      less than `latency_threshold` seconds (latency back near baseline, not just "reachable"),
      AND the container has its compose service name as a DNS alias on its network (without
      it, other services cannot find it by name even though the host still can).
+With expected_signal="app" (a dependency was restarted) the third check is instead:
+  3. the dependent web app's own /health returns HTTP 200 with db_ok true. This one is retried
+     until the overall timeout, because the app may need a moment to see the database again.
 With expected_signal=None (RESTART_CONTAINER / OOM-style) only checks 1 and 2 run, unchanged.
 Never raises: any problem becomes verified=False with a reason.
 """
+import json
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import psycopg2
@@ -85,6 +91,28 @@ def _disk_state(container, host, port, user, password, dbname):
     return usage, write_failed, write_error
 
 
+def _check_app(app_port):
+    """Returns (verified, fields, reason) from a real GET of the app's /health."""
+    if not app_port:
+        return False, {}, "no app port given, so app health cannot be checked"
+    status, body = None, ""
+    try:
+        with urllib.request.urlopen(f"http://localhost:{app_port}/health", timeout=5) as r:
+            status, body = r.status, r.read().decode()
+    except urllib.error.HTTPError as e:
+        status, body = e.code, e.read().decode()
+    except (urllib.error.URLError, OSError) as e:
+        return False, {"app_health_status_after": None}, f"app unreachable: {e}"
+    try:
+        db_ok = json.loads(body).get("db_ok")
+    except ValueError:
+        db_ok = None
+    fields = {"app_health_status_after": status, "app_db_ok_after": db_ok}
+    if status == 200 and db_ok is True:
+        return True, fields, "app /health is 200 with db_ok true"
+    return False, fields, f"app /health is {status} (db_ok={db_ok})"
+
+
 def _service_alias_missing(container):
     """Returns (missing_alias_description or None, error or None). Fails closed on errors."""
     try:
@@ -148,7 +176,8 @@ def _check_disk(container, host, port, user, password, dbname, threshold):
 
 def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, interval=INTERVAL,
            expected_signal=None, cpu_window=CPU_WINDOW, cpu_threshold=CPU_THRESHOLD,
-           disk_threshold=DISK_THRESHOLD, latency_threshold=NET_LATENCY_THRESHOLD):
+           disk_threshold=DISK_THRESHOLD, latency_threshold=NET_LATENCY_THRESHOLD,
+           app_port=None):
     """Returns {verified, elapsed_seconds, health_status, reason} (+ cpu_share_after and
     cpu_threshold when expected_signal="cpu"; disk_percent_used_after, write_failed_after and
     disk_threshold when expected_signal="disk")."""
@@ -176,24 +205,33 @@ def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, inter
                                         f" over {cpu_window}s: CPU did not recover")
                 result["elapsed_seconds"] = round(time.monotonic() - t0, 2)
                 return result
-            if ok and expected_signal == "network":
+            app_fields = {}
+            if ok and expected_signal == "app":
+                good, app_fields, why = _check_app(app_port)
+                if good:
+                    return {"verified": True, "health_status": health, **app_fields,
+                            "elapsed_seconds": round(time.monotonic() - t0, 2),
+                            "reason": "healthy, SELECT 1 succeeded, " + why}
+                reason = f"healthy, but {why}"   # retried below until the timeout
+            elif ok and expected_signal == "network":
                 good, fields, why = _check_network(host, port, user, password, dbname,
                                                    latency_threshold, container=container)
                 return {"verified": good, "health_status": health, **fields,
                         "elapsed_seconds": round(time.monotonic() - t0, 2),
                         "reason": ("healthy, SELECT 1 succeeded, " if good else "healthy, but ")
                         + why}
-            if ok and expected_signal == "disk":
+            elif ok and expected_signal == "disk":
                 good, fields, why = _check_disk(container, host, port, user, password, dbname,
                                                 disk_threshold)
                 return {"verified": good, "health_status": health, **fields,
                         "elapsed_seconds": round(time.monotonic() - t0, 2),
                         "reason": ("healthy, SELECT 1 succeeded, " if good else "healthy, but ")
                         + why}
-            if ok:
+            elif ok:
                 return {"verified": True, "elapsed_seconds": round(time.monotonic() - t0, 2),
                         "health_status": health, "reason": "healthy and SELECT 1 succeeded"}
-            reason = f"container healthy but SELECT 1 failed: {db_err or 'unexpected result'}"
+            else:
+                reason = f"container healthy but SELECT 1 failed: {db_err or 'unexpected result'}"
         else:
             reason = f"container health is {health!r}, not 'healthy'"
         if time.monotonic() - t0 + interval > timeout:

@@ -4,8 +4,8 @@ Order of checks (all in code, fail closed):
   1. action missing from policy / auto_approve false / confidence below threshold
        -> status "blocked_pending_human_approval", nothing happens
   2. dry_run (the default) -> status "would_execute", nothing happens
-  3. otherwise run the action. RESTART_CONTAINER, TERMINATE_QUERY and RECONNECT_NETWORK are
-     implemented; any other approved action is reported as "not_implemented" and does nothing.
+  3. otherwise run the action. RESTART_CONTAINER, TERMINATE_QUERY, RECONNECT_NETWORK and
+     RESTART_DEPENDENCY are implemented; any other approved action is reported as "not_implemented" and does nothing.
 
 TERMINATE_QUERY needs `db` (host/port/user/password/dbname) to reach Postgres. In dry-run it
 still looks up (read-only) which query it WOULD end, so the log shows the real target.
@@ -117,6 +117,40 @@ def terminate_query(db, dry_run, settle=5):
         conn.close()
 
 
+def restart_dependency(dependencies, dry_run):
+    """Start each listed dependency container that is NOT running. The target is chosen here,
+    in code, from Docker's real state, never from the model's wording: a running container is
+    never touched. Returns (status, reason, evidence)."""
+    import docker
+    try:
+        client = docker.from_env()
+        states = {}
+        for name in dependencies:
+            c = client.containers.get(name)
+            states[name] = c.attrs["State"]["Status"]
+        targets = [n for n, st in states.items() if st != "running"]
+        evidence = {"dependency_states_before": states, "targets": targets}
+        if not targets:
+            return "no_target", "all dependencies are already running", evidence
+        if dry_run:
+            return "would_execute", f"would start {targets}", evidence
+        started = {}
+        for name in targets:
+            c = client.containers.get(name)
+            before = c.attrs["State"]["StartedAt"]
+            c.restart(timeout=30)   # on an exited container this just starts it
+            c.reload()
+            started[name] = {"started_at_before": before,
+                             "started_at_after": c.attrs["State"]["StartedAt"],
+                             "state_after": c.attrs["State"]["Status"]}
+        evidence["started"] = started
+        if all(v["state_after"] == "running" for v in started.values()):
+            return "executed", f"started {targets}", evidence
+        return "failed", f"not all targets running afterwards: {started}", evidence
+    except Exception as e:  # docker.errors.*, connection errors
+        return "failed", f"{type(e).__name__}: {e}", {}
+
+
 def reconnect_network(name, dry_run):
     """Re-attach the container to its compose network, but only if it is really detached.
     The network name comes from Docker's own compose labels. Returns (status, reason, evidence)."""
@@ -149,7 +183,8 @@ def reconnect_network(name, dry_run):
         return "failed", f"{type(e).__name__}: {e}", {}
 
 
-def execute(action, confidence, container, dry_run=True, policy=None, db=None):
+def execute(action, confidence, container, dry_run=True, policy=None, db=None,
+            dependencies=None):
     """Returns {action, status, reason, dry_run, ...}. Never raises on policy/Docker problems."""
     out = {"action": action, "container": container, "dry_run": dry_run}
     try:
@@ -162,6 +197,9 @@ def execute(action, confidence, container, dry_run=True, policy=None, db=None):
         return {**out, "status": "blocked_pending_human_approval", "reason": reason}
     if action == "TERMINATE_QUERY":
         status, why, evidence = terminate_query(db, dry_run)
+        return {**out, "status": status, "reason": why, **evidence}
+    if action == "RESTART_DEPENDENCY":
+        status, why, evidence = restart_dependency(dependencies or [container], dry_run)
         return {**out, "status": status, "reason": why, **evidence}
     if action == "RECONNECT_NETWORK":
         status, why, evidence = reconnect_network(container, dry_run)

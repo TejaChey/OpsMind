@@ -28,7 +28,8 @@ from verify import health_check
 
 # Which extra recovery signal verify() must see after an action (None = health + SELECT 1 only).
 EXPECTED_SIGNAL = {"TERMINATE_QUERY": "cpu", "INCREASE_DISK": "disk", "FREE_DISK_SPACE": "disk",
-                   "RECONNECT_NETWORK": "network"}
+                   "RECONNECT_NETWORK": "network",
+                   "RESTART_DEPENDENCY": "app"}
 
 TRAJECTORY_FILE = Path(__file__).resolve().parent.parent / "trajectories" / "runs.jsonl"
 
@@ -62,7 +63,7 @@ def attach_running_query(signal, db):
 
 
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
-             container="opsmind-postgres", dry_run=True, db=None):
+             container="opsmind-postgres", dry_run=True, db=None, app_port=None):
     result = fast_tier.classify(signal, model)
     decision = result["decision"]
     slow = None
@@ -82,7 +83,8 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         print(f"proposed fix (not executed): {d['proposed_fix']} (confidence {d['confidence']})")
         mapped_action = action_mapper.map_action(d["proposed_fix"]).value
         print(f"mapped action: {mapped_action}")
-        execution = executor.execute(mapped_action, d["confidence"], container, dry_run, db=db)
+        execution = executor.execute(mapped_action, d["confidence"], container, dry_run, db=db,
+                                     dependencies=[container])
         if execution["status"] == "would_execute":
             print(f"would execute {mapped_action} on {container} (dry run, nothing changed)"
                   f" - {execution['reason']}")
@@ -92,7 +94,8 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
             print(f"execution {execution['status']}: {execution['reason']}")
         if execution["status"] == "executed":  # something really changed -> check the result
             verification = health_check.verify(container, **db,
-                                              expected_signal=EXPECTED_SIGNAL.get(mapped_action))
+                                              expected_signal=EXPECTED_SIGNAL.get(mapped_action),
+                                              app_port=app_port)
             print(f"verification: verified={verification['verified']} in "
                   f"{verification['elapsed_seconds']}s ({verification['reason']})")
     # --------------------------------------------------------------------------------
@@ -149,7 +152,7 @@ def main():
               dbname=args.dbname)
     attach_running_query(signal, db)
     record = run_once(signal, args.model, args.slow_model, args.container,
-                      dry_run=not args.live, db=db)
+                      dry_run=not args.live, db=db, app_port=args.app_port)
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
 
 
