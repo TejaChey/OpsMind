@@ -12,6 +12,8 @@ class Action(str, Enum):
     RESTART_CONTAINER = "RESTART_CONTAINER"
     INCREASE_MEMORY_LIMIT = "INCREASE_MEMORY_LIMIT"
     TERMINATE_QUERY = "TERMINATE_QUERY"
+    INCREASE_DISK = "INCREASE_DISK"
+    FREE_DISK_SPACE = "FREE_DISK_SPACE"
     NO_ACTION = "NO_ACTION"
     UNKNOWN_NEEDS_HUMAN = "UNKNOWN_NEEDS_HUMAN"
 
@@ -29,6 +31,15 @@ RULES = {
     Action.TERMINATE_QUERY: [
         r"\b(kill|terminate|cancel|abort|stop|end)\b.{0,40}\b(quer(y|ies)|backends?|sessions?|statements?)\b",
         r"\bpg_(terminate|cancel)_backend\b",
+    ],
+    Action.INCREASE_DISK: [
+        r"\b(increase|raise|expand|enlarge|grow|resize|extend|add|allocate)\b.{0,40}"
+        r"\b(disk|volume|storage)\b",
+        r"\b(more|additional)\s+(disk|storage)\b",
+    ],
+    Action.FREE_DISK_SPACE: [  # deletes data, so policy keeps this human-only
+        r"\b(free|clear|clean|delete|remove|purge|prune|truncate|drop|vacuum)\b.{0,40}"
+        r"\b(disk|volume|storage|data|files?|logs?|wal|tables?|rows?|backups?)\b",
     ],
     Action.NO_ACTION: [
         r"\bno action\b",
@@ -58,5 +69,7 @@ if __name__ == "__main__":
     for s in ["Increase the memory limit of the container", "Restart the service",
               "No action needed", "Increase memory limit and restart", "Rotate the TLS certs",
               "Do not restart the container", "Kill the query", "Terminate the backend process",
-              "Cancel the running query", "Kill the query and restart the container"]:
+              "Cancel the running query", "Kill the query and restart the container",
+              "Increase the size of the data volume", "Delete old log files to free up disk space",
+              "Increase the size of the data volume or remove unnecessary data"]:
         print(f"{map_action(s).value:24} <- {s}")
