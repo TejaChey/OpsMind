@@ -3,5 +3,6 @@
   "dependency-down": 1.0,
   "disk-full": 1.0,
   "network-partition": 1.0,
-  "oom": 1.0
+  "oom": 1.0,
+  "cpu-spike": 0.0
 }

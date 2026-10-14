@@ -1,39 +1,56 @@
 {
-  "git_commit": "6a98b83+uncommitted",
+  "git_commit": "1d958d8+uncommitted",
   "model": "qwen2.5:7b",
   "knowledge": "on",
   "prompt_sha256_full": "6523a8490330",
   "prompt_sha256_no_deploy": "27d0ff497154",
   "counts": {
     "oom": {
-      "correct": 6,
-      "n": 6,
+      "correct": 16,
+      "n": 16,
       "fallback": 0,
       "wrong": []
     },
     "disk-full": {
-      "correct": 1,
-      "n": 1,
+      "correct": 11,
+      "n": 11,
       "fallback": 0,
       "wrong": []
     },
     "network-partition": {
-      "correct": 8,
-      "n": 8,
+      "correct": 18,
+      "n": 18,
       "fallback": 0,
       "wrong": []
     },
     "dependency-down": {
-      "correct": 5,
-      "n": 5,
-      "fallback": 0,
-      "wrong": []
-    },
-    "config-regression": {
       "correct": 15,
       "n": 15,
       "fallback": 0,
       "wrong": []
+    },
+    "config-regression": {
+      "correct": 25,
+      "n": 25,
+      "fallback": 0,
+      "wrong": []
+    },
+    "cpu-spike": {
+      "correct": 0,
+      "n": 10,
+      "fallback": 0,
+      "wrong": [
+        "863f19f6:INCREASE_MEMORY_LIMIT",
+        "7beaf770:INCREASE_MEMORY_LIMIT",
+        "3cf547b1:INCREASE_MEMORY_LIMIT",
+        "4bc54e73:INCREASE_MEMORY_LIMIT",
+        "9d814916:INCREASE_MEMORY_LIMIT",
+        "2255e39d:INCREASE_MEMORY_LIMIT",
+        "d280e661:INCREASE_MEMORY_LIMIT",
+        "84c01b79:INCREASE_MEMORY_LIMIT",
+        "edcb7725:INCREASE_MEMORY_LIMIT",
+        "3fd8bd73:INCREASE_MEMORY_LIMIT"
+      ]
     }
   },
   "failures": []
