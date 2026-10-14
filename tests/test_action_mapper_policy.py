@@ -30,6 +30,13 @@ class MapperTests(unittest.TestCase):
         self.assertEqual(map_action("Delete old log files to free up disk space"),
                          Action.FREE_DISK_SPACE)
 
+    def test_network_action(self):
+        self.assertEqual(map_action("Reconnect the container to its Docker network"),
+                         Action.RECONNECT_NETWORK)
+        self.assertEqual(map_action("Reconnect the network and restart the container"),
+                         Action.UNKNOWN_NEEDS_HUMAN)
+        self.assertEqual(map_action("Restart the container"), Action.RESTART_CONTAINER)
+
     def test_compound_disk_proposal_is_unknown(self):
         # The slow tier's real, honest proposal: two different actions joined by "or".
         text = "Increase the size of the data volume or remove unnecessary data"
@@ -57,6 +64,10 @@ class PolicyTests(unittest.TestCase):
                   "UNKNOWN_NEEDS_HUMAN", "NO_ACTION"):
             allowed, _ = executor.check_policy(a, 1.0, self.policy)
             self.assertFalse(allowed, f"{a} must stay human-approved")
+
+    def test_reconnect_network_needs_confidence(self):
+        self.assertTrue(executor.check_policy("RECONNECT_NETWORK", 0.9, self.policy)[0])
+        self.assertFalse(executor.check_policy("RECONNECT_NETWORK", 0.5, self.policy)[0])
 
     def test_unlisted_action_is_blocked(self):
         allowed, _ = executor.check_policy("DROP_DATABASE", 1.0, self.policy)

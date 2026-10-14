@@ -12,6 +12,7 @@ class Action(str, Enum):
     RESTART_CONTAINER = "RESTART_CONTAINER"
     INCREASE_MEMORY_LIMIT = "INCREASE_MEMORY_LIMIT"
     TERMINATE_QUERY = "TERMINATE_QUERY"
+    RECONNECT_NETWORK = "RECONNECT_NETWORK"
     INCREASE_DISK = "INCREASE_DISK"
     FREE_DISK_SPACE = "FREE_DISK_SPACE"
     NO_ACTION = "NO_ACTION"
@@ -31,6 +32,11 @@ RULES = {
     Action.TERMINATE_QUERY: [
         r"\b(kill|terminate|cancel|abort|stop|end)\b.{0,40}\b(quer(y|ies)|backends?|sessions?|statements?)\b",
         r"\bpg_(terminate|cancel)_backend\b",
+    ],
+    Action.RECONNECT_NETWORK: [
+        r"\b(re-?connect|re-?attach|restore|re-?establish|re-?join)\b.{0,40}"
+        r"\b(network|connectivity|connection)\b",
+        r"\bnetwork\s+(connect|reconnect)\b",
     ],
     Action.INCREASE_DISK: [
         r"\b(increase|raise|expand|enlarge|grow|resize|extend|add|allocate)\b.{0,40}"
@@ -71,5 +77,7 @@ if __name__ == "__main__":
               "Do not restart the container", "Kill the query", "Terminate the backend process",
               "Cancel the running query", "Kill the query and restart the container",
               "Increase the size of the data volume", "Delete old log files to free up disk space",
-              "Increase the size of the data volume or remove unnecessary data"]:
+              "Increase the size of the data volume or remove unnecessary data",
+              "Reconnect the container to its Docker network", "Restore network connectivity",
+              "Reconnect the network and restart the container"]:
         print(f"{map_action(s).value:24} <- {s}")

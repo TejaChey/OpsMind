@@ -52,8 +52,8 @@ Reply with JSON only:
 - If the facts do not pin down the cause, say so in root_cause and lower the confidence.
 - proposed_fix is a proposal for a human or a later tool; keep it to a single action.
 Available remediation types (choose the one that fits, in your own words): restart the
-container; increase the container's memory limit; terminate a specific problematic query; or
-flag the incident for human review if none of these applies."""
+container; increase the container's memory limit; terminate a specific problematic query;
+reconnect the container to its Docker network; or flag the incident for human review if none of these applies."""
 
 
 def validate(raw):
