@@ -7,6 +7,8 @@
                        allows (dry run unless --live), and an executed action is verified by
                        verify/health_check.py (code, not LLM)
   3. append one JSON line with the full decision trail to trajectories/runs.jsonl
+  4. (real runs only, from main(): the harness calls run_once() directly) a VERIFIED, really
+     executed fix is recorded in the OKF knowledge bundle by tools/knowledge.py, citing the run_id
 
 Usage:  python agents/supervisor.py [--window SECONDS] [--container NAME] [--model NAME]
         (trigger the fault from another shell inside the window)
@@ -23,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `tools` is
 import action_mapper
 import fast_tier
 import slow_tier
-from tools import deploy, executor
+from tools import deploy, executor, knowledge
 from verify import health_check
 
 # Which extra recovery signal verify() must see after an action (None = health + SELECT 1 only).
@@ -167,6 +169,15 @@ def main():
     record = run_once(signal, args.model, args.slow_model, args.container,
                       dry_run=not args.live, db=db, app_port=args.app_port)
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
+    # Deliberately here and NOT inside run_once(): the test harness calls run_once() with
+    # forced inputs and only labels the record HARNESS_TEST afterwards, so a hook inside
+    # run_once() would write forced tests into the knowledge base as if they were real.
+    try:
+        status, detail = knowledge.record_incident(record)
+        if status != "refused":
+            print(f"knowledge: {status} ({detail})", file=sys.stderr)
+    except Exception as e:  # the knowledge update must never break the incident run
+        print(f"knowledge: update failed ({type(e).__name__}: {e})", file=sys.stderr)
 
 
 if __name__ == "__main__":
