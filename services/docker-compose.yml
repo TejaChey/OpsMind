@@ -42,6 +42,8 @@ services:
       DB_NAME: ${POSTGRES_DB}
     ports:
       - "${APP_HOST_PORT}:5000"
+    volumes:
+      - ../deploys/live:/config:ro   # the deployed config (see tools/deploy.py)
     depends_on:
       - postgres
     restart: unless-stopped

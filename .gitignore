@@ -2,3 +2,6 @@
 __pycache__
 .vscode
 OPSMIND_BRIEF.md
+# runtime deploy state (history + live config)
+deploys/history.jsonl
+deploys/live/
