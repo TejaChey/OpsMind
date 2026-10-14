@@ -57,6 +57,11 @@ class ContextTests(unittest.TestCase):
     def test_no_match_gives_none(self):
         self.assertIsNone(kn.context_for({"container_state": "running"}, self.bundle))
 
+    def test_ambiguous_signal_gets_no_knowledge(self):
+        # matches both dependency-down and oom: not knowing which, show no precedent at all
+        self.assertIsNone(kn.context_for({"container_state": "exited", "oom_kill_delta": 1},
+                                         self.bundle))
+
     def test_forced_fault_node(self):
         ctx = kn.context_for({"oom_kill_delta": 1}, self.bundle, fault="config-regression")
         self.assertEqual(ctx["incident_type"], "Config regression after deploy")
@@ -74,15 +79,34 @@ class SlowTierRequest(unittest.TestCase):
             slow_tier.ask_model("m", self.FAST, **kw)
         return post.call_args.kwargs["json"]["messages"]
 
-    def test_default_request_is_unchanged(self):
+    def test_default_request_without_deploy_facts_drops_only_the_deploy_pieces(self):
         msgs = self.payload()
-        self.assertEqual(msgs[0]["content"], slow_tier.SYSTEM_PROMPT)
+        self.assertEqual(msgs[0]["content"], slow_tier.build_system_prompt(False))
+        self.assertNotIn("last_deploy", msgs[0]["content"])
+        self.assertNotIn("roll back the web app", msgs[0]["content"])
         self.assertNotIn("knowledge_base", msgs[1]["content"])
+
+    def test_request_with_deploy_facts_is_the_full_prompt(self):
+        fast = {**self.FAST, "signal": {**self.FAST["signal"], "last_deploy": {"deploy_id": "x"}}}
+        resp = mock.Mock()
+        resp.json.return_value = {"message": {"content": "{}"}}
+        with mock.patch.object(slow_tier.requests, "post", return_value=resp) as post:
+            slow_tier.ask_model("m", fast)
+        self.assertEqual(post.call_args.kwargs["json"]["messages"][0]["content"],
+                         slow_tier.SYSTEM_PROMPT)
+
+    def test_only_the_two_deploy_pieces_differ(self):
+        full, lean = slow_tier.SYSTEM_PROMPT, slow_tier.build_system_prompt(False)
+        self.assertLess(len(lean), len(full))
+        for must_keep in ("reconnect the container to its Docker network", "restart the",
+                          "terminate a specific problematic query", "flag the incident for human review",
+                          "app_health_status", "pg_ready_inside"):
+            self.assertIn(must_keep.replace(" ", ""), lean.replace("\n", "").replace(" ", ""))
 
     def test_knowledge_is_added_as_facts_plus_a_note(self):
         msgs = self.payload(knowledge={"incident_type": "x"})
         self.assertIn("knowledge_base", msgs[1]["content"])
-        self.assertTrue(msgs[0]["content"].startswith(slow_tier.SYSTEM_PROMPT))
+        self.assertTrue(msgs[0]["content"].startswith(slow_tier.build_system_prompt(False)))
         self.assertIn("PREVIOUS incidents", msgs[0]["content"])
 
     def test_system_prompt_override(self):

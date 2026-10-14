@@ -366,9 +366,14 @@ def context_for(signal, bundle=BUNDLE, exclude_run_id=None, fault=None):
     policy, and any action enum names. Those would hand the model an answer key. Experience only.
     `exclude_run_id` removes that run's own outcome (leave-one-out, for offline replays).
     `fault` forces a specific fault node (used only by the 'misleading knowledge' condition).
-    Returns None if the signal matches no fault type."""
-    slug = fault or next(iter(matched_faults(signal)), None)
-    if slug is None or slug not in FAULTS:
+    Returns None if the signal matches no fault type, or MORE THAN ONE: the experiment showed the
+    model copies whatever precedent it is shown (20/20 wrong when given the wrong file), so when
+    the code cannot tell which fault this is, showing no precedent beats risking a wrong one."""
+    matches = matched_faults(signal)
+    if fault is None and len(matches) != 1:
+        return None
+    slug = fault or matches[0]
+    if slug not in FAULTS:
         return None
     f = FAULTS[slug]
     past = [{"when": o["at"], "what_was_proposed": o["proposed_fix"],

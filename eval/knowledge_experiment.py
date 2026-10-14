@@ -44,7 +44,10 @@ SUMMARY = OUT_DIR / "knowledge_experiment_summary.csv"
 GROUND_TRUTH = {   # known correct remediation per fault (CLAUDE.md "Evaluation fault set")
     "oom": {"INCREASE_MEMORY_LIMIT"},
     "cpu-spike": {"TERMINATE_QUERY"},
-    "disk-full": {"INCREASE_DISK", "FREE_DISK_SPACE"},
+    # Every disk outcome goes to a human (policy: INCREASE_DISK, FREE_DISK_SPACE and UNKNOWN are
+    # all auto_approve:false), and the model's honest compound proposal "increase the volume OR
+    # clean up data" maps to UNKNOWN by design (brief s7), so UNKNOWN counts as acceptable here.
+    "disk-full": {"INCREASE_DISK", "FREE_DISK_SPACE", "UNKNOWN_NEEDS_HUMAN"},
     "network-partition": {"RECONNECT_NETWORK"},
     "dependency-down": {"RESTART_DEPENDENCY"},
     "config-regression": {"ROLLBACK_CONFIG"},
@@ -61,8 +64,8 @@ MISLEADING = {"network-partition": "dependency-down", "dependency-down": "config
 CONDITIONS = ["control_full", "know_full", "control_ablated", "know_ablated", "know_misleading"]
 
 
-def ablated_prompt(fault):
-    new, n = re.subn(MENU_PHRASE[fault], "", slow_tier.SYSTEM_PROMPT, count=1)
+def ablated_prompt(fault, base_prompt=slow_tier.SYSTEM_PROMPT):
+    new, n = re.subn(MENU_PHRASE[fault], "", base_prompt, count=1)
     assert n == 1, f"menu phrase for {fault} not found in the slow-tier prompt"
     return new
 
@@ -73,7 +76,7 @@ def plan(rec):
     ctx = lambda **kw: knowledge.context_for(rec["signal"], exclude_run_id=rec["run_id"], **kw)
     out = [("control_full", {}), ("know_full", {"knowledge": ctx()})]
     if fault in MENU_PHRASE:
-        p = ablated_prompt(fault)
+        p = ablated_prompt(fault, slow_tier.build_system_prompt("last_deploy" in rec["signal"]))
         out += [("control_ablated", {"system_prompt": p}),
                 ("know_ablated", {"system_prompt": p, "knowledge": ctx()})]
     if fault in MISLEADING:
