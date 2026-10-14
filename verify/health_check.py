@@ -12,7 +12,9 @@ With expected_signal="disk" (a disk fault was addressed) the third check is inst
      `disk_threshold` full. If either can't be measured the result is verified=False.
 With expected_signal="network" (a partition was addressed) the third check is instead:
   3. NET_PROBES real connect + SELECT 1 round trips from the host all succeed and each takes
-     less than `latency_threshold` seconds (latency back near baseline, not just "reachable").
+     less than `latency_threshold` seconds (latency back near baseline, not just "reachable"),
+     AND the container has its compose service name as a DNS alias on its network (without
+     it, other services cannot find it by name even though the host still can).
 With expected_signal=None (RESTART_CONTAINER / OOM-style) only checks 1 and 2 run, unchanged.
 Never raises: any problem becomes verified=False with a reason.
 """
@@ -83,8 +85,26 @@ def _disk_state(container, host, port, user, password, dbname):
     return usage, write_failed, write_error
 
 
-def _check_network(host, port, user, password, dbname, threshold, probes=NET_PROBES):
-    """Returns (verified, fields, reason): every probe must succeed and be under threshold."""
+def _service_alias_missing(container):
+    """Returns (missing_alias_description or None, error or None). Fails closed on errors."""
+    try:
+        import docker
+        c = docker.from_env().containers.get(container)
+        service = c.labels.get("com.docker.compose.service")
+        if not service:
+            return None, None   # not a compose container: nothing to check
+        nets = c.attrs["NetworkSettings"]["Networks"]
+        if not any(service in (n.get("Aliases") or []) for n in nets.values()):
+            return f"no network has DNS alias {service!r}", None
+        return None, None
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
+
+
+def _check_network(host, port, user, password, dbname, threshold, probes=NET_PROBES,
+                   container=None):
+    """Returns (verified, fields, reason): every probe must succeed and be under threshold,
+    and (if `container` is given) the container's compose DNS alias must be present."""
     times = []
     for _ in range(probes):
         t0 = time.monotonic()
@@ -96,6 +116,13 @@ def _check_network(host, port, user, password, dbname, threshold, probes=NET_PRO
     fields = {"net_latency_seconds": times, "net_latency_threshold": threshold}
     if max(times) >= threshold:
         return False, fields, f"reachable but slow: max {max(times)}s >= {threshold}s"
+    if container:
+        missing, err = _service_alias_missing(container)
+        fields["dns_alias_ok"] = missing is None and err is None
+        if err:
+            return False, fields, f"could not check DNS alias: {err}"
+        if missing:
+            return False, fields, f"reachable from host, but {missing}"
     return True, fields, f"{probes} probes succeeded, max {max(times)}s < {threshold}s"
 
 
@@ -151,7 +178,7 @@ def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, inter
                 return result
             if ok and expected_signal == "network":
                 good, fields, why = _check_network(host, port, user, password, dbname,
-                                                   latency_threshold)
+                                                   latency_threshold, container=container)
                 return {"verified": good, "health_status": health, **fields,
                         "elapsed_seconds": round(time.monotonic() - t0, 2),
                         "reason": ("healthy, SELECT 1 succeeded, " if good else "healthy, but ")

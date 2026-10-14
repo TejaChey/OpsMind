@@ -77,5 +77,23 @@ class NetworkVerification(unittest.TestCase):
         self.assertFalse(net([(False, None)])[0])
 
 
+class AliasVerification(unittest.TestCase):
+    def run_net(self, alias_result):
+        with mock.patch.object(hc, "_select_one", return_value=(True, None)), \
+             mock.patch.object(hc, "_service_alias_missing", return_value=alias_result):
+            return hc._check_network("h", 1, "u", "p", "d", 1.0, probes=2, container="c")
+
+    def test_missing_dns_alias_fails_even_if_host_can_connect(self):
+        ok, fields, why = self.run_net(("no network has DNS alias 'postgres'", None))
+        self.assertFalse(ok)
+        self.assertFalse(fields["dns_alias_ok"])
+
+    def test_alias_check_error_fails_closed(self):
+        self.assertFalse(self.run_net((None, "docker down"))[0])
+
+    def test_alias_present_passes(self):
+        self.assertTrue(self.run_net((None, None))[0])
+
+
 if __name__ == "__main__":
     unittest.main()

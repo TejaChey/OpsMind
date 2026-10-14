@@ -133,10 +133,15 @@ def reconnect_network(name, dry_run):
             return "no_target", f"already connected to {network}", evidence
         if dry_run:
             return "would_execute", f"would connect {name} to {network}", evidence
-        docker.from_env().networks.get(network).connect(c)
+        # A plain connect loses compose's DNS names, so other services could no longer find
+        # this one by name. Restore them: the compose service name + the container name.
+        aliases = [a for a in (c.labels.get("com.docker.compose.service"), name) if a]
+        docker.from_env().networks.get(network).connect(c, aliases=aliases)
         c.reload()
         after = sorted(c.attrs["NetworkSettings"]["Networks"])
         evidence["networks_after"] = after
+        evidence["aliases_after"] = c.attrs["NetworkSettings"]["Networks"].get(
+            network, {}).get("Aliases")
         if network in after:
             return "executed", f"connected {name} to {network}", evidence
         return "failed", f"connect returned but {network} not in {after}", evidence

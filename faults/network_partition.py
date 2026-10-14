@@ -77,8 +77,13 @@ def reconnect(args):
     if args.network in nets:
         print(f"already connected to {args.network}")
         return
-    docker("network", "connect", args.network, args.container)
-    print(f"reconnected {args.container} to {args.network}")
+    # Re-add compose's DNS names too (a plain connect loses them, and other services then
+    # cannot find this container by name).
+    labels = json.loads(docker("inspect", args.container).stdout)[0]["Config"]["Labels"]
+    aliases = [a for a in (labels.get("com.docker.compose.service"), args.container) if a]
+    cmd = ["network", "connect"] + [x for a in aliases for x in ("--alias", a)]
+    docker(*cmd, args.network, args.container)
+    print(f"reconnected {args.container} to {args.network} (aliases {aliases})")
 
 
 def main():

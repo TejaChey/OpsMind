@@ -30,6 +30,28 @@ services:
       retries: 3
       start_period: 10s
 
+  # Second service (Phase 1): a small web app whose /health does a real round trip to Postgres.
+  # Host port 5050 (not 5000: macOS uses 5000 for AirPlay). Fault: stop `postgres`, this stays up.
+  app:
+    build: ./app
+    container_name: opsmind-app
+    environment:
+      DB_HOST: postgres
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+    ports:
+      - "${APP_HOST_PORT}:5000"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 2
+      start_period: 5s
+
 volumes:
   pgdata:
     driver: local
