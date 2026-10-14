@@ -16,6 +16,7 @@ Usage:  python agents/supervisor.py [--window SECONDS] [--container NAME] [--mod
 import argparse
 import json
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -79,7 +80,11 @@ def attach_deploy_facts(signal):
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
              container="opsmind-postgres", dry_run=True, db=None, app_port=None,
              knowledge_context=None):
+    fast_tier.take_usage()   # reset the token counters
+    t = time.perf_counter()
     result = fast_tier.classify(signal, model)
+    timings = {"fast_seconds": round(time.perf_counter() - t, 3)}
+    usage = {"fast": fast_tier.take_usage()}
     decision = result["decision"]
     slow = None
     mapped_action = None
@@ -92,14 +97,19 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         print("no action needed")
     else:
         action = "escalate_slow_tier"
+        t = time.perf_counter()
         slow = slow_tier.diagnose(result, slow_model, knowledge=knowledge_context)
+        timings["slow_seconds"] = round(time.perf_counter() - t, 3)
+        usage["slow"] = fast_tier.take_usage()
         d = slow["diagnosis"]
         print(f"escalated to slow tier ({slow['source']}): {d['root_cause']}")
         print(f"proposed fix (not executed): {d['proposed_fix']} (confidence {d['confidence']})")
         mapped_action = action_mapper.map_action(d["proposed_fix"]).value
         print(f"mapped action: {mapped_action}")
+        t = time.perf_counter()
         execution = executor.execute(mapped_action, d["confidence"], container, dry_run, db=db,
                                      dependencies=[container], app_port=app_port)
+        timings["execute_seconds"] = round(time.perf_counter() - t, 3)
         if execution["status"] == "would_execute":
             print(f"would execute {mapped_action} on {container} (dry run, nothing changed)"
                   f" - {execution['reason']}")
@@ -108,9 +118,11 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         else:
             print(f"execution {execution['status']}: {execution['reason']}")
         if execution["status"] == "executed":  # something really changed -> check the result
+            t = time.perf_counter()
             verification = health_check.verify(container, **db,
                                               expected_signal=EXPECTED_SIGNAL.get(mapped_action),
                                               app_port=app_port)
+            timings["verify_seconds"] = round(time.perf_counter() - t, 3)
             print(f"verification: verified={verification['verified']} in "
                   f"{verification['elapsed_seconds']}s ({verification['reason']})")
     # --------------------------------------------------------------------------------
@@ -131,6 +143,8 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         "mapped_action": mapped_action,
         "execution": execution,
         "verification": verification,
+        "timings": timings,    # per-stage wall-clock seconds
+        "usage": usage,        # Ollama token counts / model time per tier
     }
     write_trajectory(record)
     return record

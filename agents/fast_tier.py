@@ -286,6 +286,25 @@ def _collect_running(container, host, port, user, password, dbname, window):
 
 # ---------- model call + schema validation ----------
 
+USAGE = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "model_seconds": 0.0}
+
+
+def record_usage(resp_json):
+    """Accumulate Ollama's own counters for a response (side channel; callers' return values
+    are unchanged). Read-and-reset with take_usage()."""
+    USAGE["calls"] += 1
+    USAGE["prompt_tokens"] += resp_json.get("prompt_eval_count") or 0
+    USAGE["completion_tokens"] += resp_json.get("eval_count") or 0
+    USAGE["model_seconds"] += (resp_json.get("total_duration") or 0) / 1e9
+
+
+def take_usage():
+    """Return the accumulated usage and reset it."""
+    out = {k: (round(v, 3) if isinstance(v, float) else v) for k, v in USAGE.items()}
+    USAGE.update(calls=0, prompt_tokens=0, completion_tokens=0, model_seconds=0.0)
+    return out
+
+
 def validate(raw):
     """Parse and strictly validate model output. Returns dict or raises ValueError."""
     try:
@@ -327,7 +346,9 @@ def ask_model(model, signal):
         ],
     })
     r.raise_for_status()
-    return r.json()["message"]["content"]
+    body = r.json()
+    record_usage(body)
+    return body["message"]["content"]
 
 
 def apply_floor(decision, signal):

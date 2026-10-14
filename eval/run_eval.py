@@ -102,38 +102,48 @@ def restore_baseline(cfg, app_port, db):
 
 
 def inject_and_sample(fault, cfg, db, app_port, trial):
-    """Returns (signal, injector_effect, t_fault_ready, injector_output)."""
+    """Returns (signal, meta) where meta has the injector's own verdict, the time the fault was in
+    effect (t_ready), the time sampling finished (t_sampled), and the independent fault_present
+    checks taken just BEFORE and just AFTER the system sampled (None for event faults)."""
     plan = PLAN[fault]
     cmd = list(plan["cmd"])
     if fault == "config-regression":
         cmd += ["--variant", "host" if trial % 2 else "port"]
     args = (CONTAINER, db["host"], db["port"], db["user"], db["password"], db["dbname"])
     if plan["mode"] == "state":
-        t0 = time.time()
         rc, out = sh(cmd)
         t_ready = time.time()
+        before = ground_truth.fault_present(fault, CONTAINER, db, app_port)
         sig = fast_tier.collect_signal(*args, plan["window"], app=APP, app_port=app_port)
-        return sig, EFFECT in out, t_ready, out
+        t_sampled = time.time()
+        after = ground_truth.fault_present(fault, CONTAINER, db, app_port)
+        return sig, dict(effect=EFFECT in out, t_ready=t_ready, t_sampled=t_sampled,
+                         present_before=before, present_after=after)
     proc = subprocess.Popen([PY, *cmd], cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True)
     t_start = time.time()
     time.sleep(plan["pre_sleep"])
     sig = fast_tier.collect_signal(*args, plan["window"], app=APP, app_port=app_port)
+    t_sampled = time.time()
     out = proc.communicate(timeout=300)[0]
-    return sig, EFFECT in out, t_start, out
+    return sig, dict(effect=EFFECT in out, t_ready=t_start, t_sampled=t_sampled,
+                     present_before=None, present_after=None)
 
 
-def score(fault, record, t_ready, db, app_port, injector_effect):
+def score(fault, record, meta, t_done, db, app_port):
     d, ex, ver = record["decision"], record.get("execution") or {}, record.get("verification")
     row = {
-        "fault": fault, "injector_effect": injector_effect,
+        "fault": fault, "injector_effect": meta["effect"],
+        "fault_present_before": meta["present_before"], "fault_present_after": meta["present_after"],
         "model_escalated": bool(record["model_raw"] and record["model_raw"]["escalate"]),
         "final_escalated": d["escalate"], "overridden": record["overridden"],
         "mapped_action": record["mapped_action"],
         "mapping_correct": record["mapped_action"] in GROUND_TRUTH[fault] if record["mapped_action"] else False,
         "exec_status": ex.get("status"), "exec_dry_run": ex.get("dry_run"),
         "verified": ver["verified"] if ver else None,
-        "ttd_seconds": round(datetime.fromisoformat(record["timestamp"]).timestamp() - t_ready, 1),
+        # detection = fault in effect -> fast-tier decision available (sampling window + fast call)
+        "ttd_seconds": round(meta["t_sampled"] - meta["t_ready"] + record["timings"]["fast_seconds"], 1),
+        "timings": record["timings"], "usage": record["usage"],
     }
     if ex.get("status") == "executed":
         gt, detail = ground_truth.recovered(fault, CONTAINER, db, app_port)
@@ -141,7 +151,7 @@ def score(fault, record, t_ready, db, app_port, injector_effect):
         row.update(gt_recovered=gt, gt_detail=detail, plain_health_verified=plain["verified"],
                    verifier_false_pass=bool(ver and ver["verified"] and gt is False),
                    health_only_false_pass=bool(plain["verified"] and gt is False),
-                   ttr_seconds=round(time.time() - t_ready, 1))
+                   ttr_seconds=round(t_done - meta["t_ready"], 1))
     return row
 
 
@@ -154,10 +164,9 @@ def run_trial(kind, fault, trial, cfg, db, app_port):
         if kind == "control":
             sig = fast_tier.collect_signal(CONTAINER, db["host"], db["port"], db["user"],
                                            db["password"], db["dbname"], 5, app=APP, app_port=app_port)
-            t_ready, injector_effect, fault_name = t_wall, None, "none"
+            meta = None
         else:
-            sig, injector_effect, t_ready, _ = inject_and_sample(fault, cfg, db, app_port, trial)
-            fault_name = fault
+            sig, meta = inject_and_sample(fault, cfg, db, app_port, trial)
         supervisor.attach_running_query(sig, db)
         supervisor.attach_deploy_facts(sig)
         kctx = knowledge.context_for(sig)
@@ -168,12 +177,14 @@ def run_trial(kind, fault, trial, cfg, db, app_port):
                                       app_port=app_port, knowledge_context=kctx)
         finally:
             supervisor.write_trajectory = real_write
+        t_done = time.time()
         if kind == "control":
             row = {"fault": "none", "model_escalated": bool(rec["model_raw"] and rec["model_raw"]["escalate"]),
                    "final_escalated": rec["decision"]["escalate"], "overridden": rec["overridden"],
-                   "mapped_action": rec["mapped_action"]}
+                   "mapped_action": rec["mapped_action"], "timings": rec["timings"],
+                   "usage": rec["usage"]}
         else:
-            row = score(fault, rec, t_ready, db, app_port, injector_effect)
+            row = score(fault, rec, meta, t_done, db, app_port)
         row.update(kind=kind, trial=trial, config="full", timestamp=datetime.now(timezone.utc).isoformat(),
                    knowledge_shown=bool(kctx), record=rec)
         return row

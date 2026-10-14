@@ -1,0 +1,7 @@
+fault,valid_trials,detected,model_alone_detected,overridden,mapping_correct,executed_live,auto_fix_success,verifier_false_pass,health_only_false_pass,median_ttd_s,median_ttr_s,recall,recall_ci95,mapping_acc,mapping_ci95
+config-regression,10,10,0,10,10,10,10,0,0,11.6,11.6,1.0,0.722-1,1.0,0.722-1
+cpu-spike,10,10,0,10,0,0,0,0,0,30.6,,1.0,0.722-1,0.0,0-0.278
+dependency-down,10,10,0,10,10,10,10,0,0,8.6,8.7,1.0,0.722-1,1.0,0.722-1
+disk-full,10,8,8,0,8,0,0,0,0,8.5,,0.8,0.49-0.943,0.8,0.49-0.943
+network-partition,10,10,0,10,10,10,10,0,0,16.8,16.8,1.0,0.722-1,1.0,0.722-1
+oom,10,10,0,10,10,0,0,0,0,43.7,,1.0,0.722-1,1.0,0.722-1
