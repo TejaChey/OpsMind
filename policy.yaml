@@ -1,0 +1,19 @@
+# What the executor may do without a human. Anything not listed here is blocked.
+# auto_approve: false -> logged as "blocked pending human approval", nothing executes.
+# min_confidence: slow-tier confidence (0-1) must be >= this to auto-execute.
+actions:
+  RESTART_CONTAINER:
+    auto_approve: true
+    min_confidence: 0.7
+  TERMINATE_QUERY:          # small and reversible (the client can just re-run the query)
+    auto_approve: true
+    min_confidence: 0.7
+  INCREASE_MEMORY_LIMIT:    # riskier: changes resource limits, so a human decides
+    auto_approve: false
+    min_confidence: 1.0
+  NO_ACTION:
+    auto_approve: false
+    min_confidence: 1.0
+  UNKNOWN_NEEDS_HUMAN:
+    auto_approve: false
+    min_confidence: 1.0
