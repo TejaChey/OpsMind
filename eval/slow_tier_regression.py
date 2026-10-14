@@ -36,6 +36,7 @@ from tools import knowledge
 RUNS = ROOT / "trajectories" / "runs.jsonl"
 THRESHOLDS = ROOT / "eval" / "slow_tier_thresholds.json"
 LATEST = ROOT / "eval" / "results" / "slow_tier_regression_latest.json"
+EVAL_RUNS = ROOT / "eval" / "results" / "eval_runs.jsonl"
 
 
 def git_commit():
@@ -46,9 +47,27 @@ def git_commit():
     return r.stdout.strip() + ("+uncommitted" if dirty else "")
 
 
-def replay(use_knowledge, model):
+def load_incidents():
+    """Real escalated incidents: trajectories/runs.jsonl PLUS the live evaluation trials. The
+    latter matter: their signals carry `last_deploy` (the supervisor attaches it whenever deploy
+    history exists), i.e. what production sees today; older stored signals predate that and
+    made this gate pass on input the system no longer receives. Deduplicated by run_id."""
     recs = [json.loads(l) for l in RUNS.read_text(encoding="utf-8").splitlines() if l.strip()]
-    recs = [r for r in recs if r["decision"]["escalate"] and knowledge.matched_faults(r["signal"])]
+    if EVAL_RUNS.exists():
+        for line in EVAL_RUNS.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            if row.get("kind") == "fault" and "record" in row and row.get("injector_effect"):
+                recs.append(row["record"])
+    seen, out = set(), []
+    for r in recs:
+        if r["run_id"] not in seen and r["decision"]["escalate"] and knowledge.matched_faults(r["signal"]):
+            seen.add(r["run_id"])
+            out.append(r)
+    return out
+
+
+def replay(use_knowledge, model):
+    recs = load_incidents()
     counts = defaultdict(lambda: {"correct": 0, "n": 0, "fallback": 0, "wrong": []})
     for r in recs:
         fault = knowledge.matched_faults(r["signal"])[0]

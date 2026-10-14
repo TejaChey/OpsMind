@@ -29,7 +29,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 RES = Path(__file__).resolve().parent / "results"
-RAW = RES / "eval_runs.jsonl"
+RAW = RES / "eval_runs.jsonl"                    # live runs of the full configuration
+OFFLINE = RES / "eval_runs_offline.jsonl"        # baselines/ablations replayed offline
+ORDER = ["full", "single_7b", "fixed_rules", "no_floor", "no_knowledge", "no_policy_gate",
+         "health_only_verification"]
 
 
 def wilson(k, n, z=1.96):
@@ -49,6 +52,8 @@ def wrong_auto(r):
     a = r["mapped_action"]
     if r["mapping_correct"] or a in (None, "UNKNOWN_NEEDS_HUMAN"):
         return False
+    if r.get("policy_gate") is False:     # ablation: no policy.yaml, every named action would run
+        return True
     conf = r["record"]["slow_tier"]["diagnosis"]["confidence"]
     return executor.check_policy(a, conf, executor.load_policy())[0]
 
@@ -65,8 +70,41 @@ def med(xs):
 
 
 def load(config):
-    rows = [json.loads(l) for l in RAW.read_text(encoding="utf-8").splitlines() if l.strip()]
+    rows = []
+    for path in (RAW, OFFLINE):
+        if path.exists():
+            rows += [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
     return [r for r in rows if r.get("config", "full") == config]
+
+
+def compare(configs):
+    """One row per configuration, aggregated over all fault types (see run_baselines.py for what
+    each offline configuration can and cannot measure)."""
+    table = []
+    for cfg in configs:
+        rows = load(cfg)
+        if not rows:
+            continue
+        out, s = summarize(rows)
+        n = sum(o["valid_trials"] for o in out)
+        det = sum(o["detected"] for o in out)
+        mapped = sum(o["mapping_correct"] for o in out)
+        live = sum(o["executed_live"] for o in out)
+        table.append({
+            "config": cfg, "valid_fault_trials": n,
+            "recall": round(det / n, 3), "recall_ci95": "-".join(map(str, wilson(det, n))),
+            "false_positive_rate": s["false_positive_rate"],
+            "precision": s["precision"],
+            "mapping_accuracy": round(mapped / n, 3), "mapping_ci95": "-".join(map(str, wilson(mapped, n))),
+            "wrong_named_action": sum(o["wrong_named_action"] for o in out),
+            "wrong_would_auto_execute": sum(o["wrong_would_auto_execute"] for o in out),
+            "executed_live": live,
+            "auto_fix_success": sum(o["auto_fix_success"] for o in out) if live else "n/a (offline)",
+            "verifier_false_pass": sum(o["verifier_false_pass"] for o in out) if live else "n/a",
+            "health_only_false_pass": sum(o["health_only_false_pass"] for o in out) if live else "n/a",
+            "median_ttd_s": med([o["median_ttd_s"] for o in out]),
+        })
+    return table
 
 
 def summarize(rows):
@@ -130,7 +168,17 @@ def summarize(rows):
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--config", default="full")
+    p.add_argument("--compare", action="store_true", help="side-by-side table of all configurations")
     a = p.parse_args()
+    if a.compare:
+        table = compare(ORDER)
+        path = RES / "eval_comparison.csv"
+        with path.open("w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(table[0]))
+            w.writeheader()
+            w.writerows(table)
+        print(path.read_text())
+        return
     out, summary = summarize(load(a.config))
     path = RES / f"eval_summary_{a.config}.csv"
     with path.open("w", newline="", encoding="utf-8") as f:

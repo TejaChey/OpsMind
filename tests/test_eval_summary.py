@@ -43,6 +43,13 @@ class NewMetricTests(unittest.TestCase):
         self.assertEqual(out[0]["unknown_to_human"], 1)
         self.assertEqual(out[0]["wrong_would_auto_execute"], 1)
 
+    def test_no_policy_gate_makes_every_wrong_named_action_dangerous(self):
+        blocked = fault_row(mapping_correct=False, mapped_action="INCREASE_MEMORY_LIMIT")
+        out, _ = se.summarize([blocked])
+        self.assertEqual(out[0]["wrong_would_auto_execute"], 0)       # policy blocks it
+        out, _ = se.summarize([dict(blocked, policy_gate=False)])
+        self.assertEqual(out[0]["wrong_would_auto_execute"], 1)       # ablation: it would run
+
     def test_token_and_latency_columns(self):
         out, _ = se.summarize([fault_row()])
         self.assertEqual(out[0]["fast_tokens_mean"], 110)
