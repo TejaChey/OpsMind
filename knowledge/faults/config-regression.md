@@ -7,7 +7,7 @@ tags:
 - config-regression
 generated:
   by: opsmind-knowledge-writer/0.1
-  at: '2026-10-14T14:04:36Z'
+  at: '2026-10-14T15:05:04Z'
 sources:
 - id: run-0a71189a
   resource: ../trajectories/runs.jsonl#0a71189a-8eae-4ef4-9824-29999ce85b1a
@@ -19,11 +19,18 @@ sources:
   title: OpsMind run a530b6a9-7192-41d8-9402-754f106d8b23
   author: opsmind-supervisor/0.1
   last_modified: '2026-10-14T14:04:36.300009Z'
+- id: run-90383827
+  resource: ../trajectories/runs.jsonl#90383827-2bda-4d6c-93b5-fe7e52de5e17
+  title: OpsMind run 90383827-2bda-4d6c-93b5-fe7e52de5e17
+  author: opsmind-supervisor/0.1
+  last_modified: '2026-10-14T15:05:04.591681Z'
 verified:
 - by: process:opsmind-verify
   at: '2026-10-14T13:54:19.814142Z'
 - by: process:opsmind-verify
   at: '2026-10-14T14:04:36.300009Z'
+- by: process:opsmind-verify
+  at: '2026-10-14T15:05:04.591681Z'
 outcomes:
 - run_id: 0a71189a-8eae-4ef4-9824-29999ce85b1a
   at: '2026-10-14T13:54:19.814142Z'
@@ -40,6 +47,14 @@ outcomes:
   action: ROLLBACK_CONFIG
   verification_reason: healthy, SELECT 1 succeeded, app /health is 200 with db_ok
     true; live config equals known-good deploy 4087466b
+  also_matched: []
+- run_id: 90383827-2bda-4d6c-93b5-fe7e52de5e17
+  at: '2026-10-14T15:05:04.591681Z'
+  overridden: true
+  proposed_fix: Roll back the web app's config to the last known-good deploy.
+  action: ROLLBACK_CONFIG
+  verification_reason: healthy, SELECT 1 succeeded, app /health is 200 with db_ok
+    true; live config equals known-good deploy 1c5a9680
   also_matched: []
 ---
 
@@ -75,6 +90,8 @@ See the [runbook](/runbooks/config-regression.md).
 |---|---|---|---|---|---|
 | 2026-10-14T13:54:19.814142Z | 0a71189a[^run-0a71189a] | model said no; code floor overrode | Roll back the web app's config to the last known-good deploy. | ROLLBACK_CONFIG | verified: healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy a5ffdbaf |
 | 2026-10-14T14:04:36.300009Z | a530b6a9[^run-a530b6a9] | model said no; code floor overrode | Roll back the web app's config to the last known-good deploy. | ROLLBACK_CONFIG | verified: healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy 4087466b |
+| 2026-10-14T15:05:04.591681Z | 90383827[^run-90383827] | model said no; code floor overrode | Roll back the web app's config to the last known-good deploy. | ROLLBACK_CONFIG | verified: healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy 1c5a9680 |
 
 [^run-0a71189a]: Run 0a71189a-8eae-4ef4-9824-29999ce85b1a in trajectories/runs.jsonl
 [^run-a530b6a9]: Run a530b6a9-7192-41d8-9402-754f106d8b23 in trajectories/runs.jsonl
+[^run-90383827]: Run 90383827-2bda-4d6c-93b5-fe7e52de5e17 in trajectories/runs.jsonl
