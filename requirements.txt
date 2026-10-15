@@ -3,3 +3,5 @@ requests
 docker
 pyyaml
 matplotlib
+streamlit
+pandas
