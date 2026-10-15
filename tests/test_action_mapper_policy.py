@@ -25,6 +25,19 @@ class MapperTests(unittest.TestCase):
         for text, want in cases.items():
             self.assertEqual(map_action(text), want, text)
 
+    def test_cpu_limit_action(self):
+        for text in ("Increase the container's CPU limit", "Raise the CPU cap for the database",
+                     "Allocate more CPU cores to the container", "Give the container more CPU"):
+            self.assertEqual(map_action(text), Action.INCREASE_CPU_LIMIT, text)
+
+    def test_cpu_and_memory_are_not_confused(self):
+        self.assertEqual(map_action("Increase the container's memory limit"), Action.INCREASE_MEMORY_LIMIT)
+        self.assertEqual(map_action("Increase the CPU limit and the memory limit"),
+                         Action.UNKNOWN_NEEDS_HUMAN)       # two actions in one proposal -> human
+        self.assertEqual(map_action("Increase the CPU limit and restart the container"),
+                         Action.UNKNOWN_NEEDS_HUMAN)
+        self.assertEqual(map_action("Do not increase the CPU limit"), Action.UNKNOWN_NEEDS_HUMAN)
+
     def test_disk_actions(self):
         self.assertEqual(map_action("Increase the size of the data volume"), Action.INCREASE_DISK)
         self.assertEqual(map_action("Delete old log files to free up disk space"),
@@ -60,7 +73,7 @@ class PolicyTests(unittest.TestCase):
             self.assertIn(a.value, self.policy, f"{a.value} missing from policy.yaml")
 
     def test_data_and_capacity_actions_are_never_auto(self):
-        for a in ("INCREASE_DISK", "FREE_DISK_SPACE", "INCREASE_MEMORY_LIMIT",
+        for a in ("INCREASE_DISK", "FREE_DISK_SPACE", "INCREASE_MEMORY_LIMIT", "INCREASE_CPU_LIMIT",
                   "UNKNOWN_NEEDS_HUMAN", "NO_ACTION"):
             allowed, _ = executor.check_policy(a, 1.0, self.policy)
             self.assertFalse(allowed, f"{a} must stay human-approved")

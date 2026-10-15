@@ -129,9 +129,11 @@ Comparison on the same 70 saved signals (decision quality only; offline runs exe
 
 - The small fast model alone detects only 15% of real incidents. The deterministic floor is
   what makes detection work.
-- For CPU spikes the slow tier diagnoses correctly but proposes "increase the memory limit"
-  10 out of 10 times. The policy blocks it for a human. We record this as a finding and do not
-  tune the prompt to hide it.
+- For CPU spikes the slow tier diagnoses correctly, but in the evaluation it proposed "increase the
+  memory limit" 10 out of 10 times because its menu had no CPU item. Adding "increase the CPU
+  limit" to the menu changed that to 10/10 CPU proposals in a replay (other faults unchanged), still
+  blocked for a human by policy. The scored ground truth for CPU is still "terminate the query", and
+  the headline numbers below were measured before this change (see `eval/results/cpu_menu_NOTES.md`).
 - The slow tier's proposal depends on what its plain-language menu offers, and the prompt is
   fragile. A standing regression check (`python eval/slow_tier_regression.py`) replays real
   incidents through it and must be run after any change to the slow tier, prompt, or knowledge.
