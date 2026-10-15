@@ -1,0 +1,6 @@
+single_7b: 70 rows
+fixed_rules: 70 rows
+no_floor: 70 rows
+no_knowledge: 70 rows
+no_policy_gate: 70 rows
+health_only_verification: 70 rows

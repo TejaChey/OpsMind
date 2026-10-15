@@ -27,6 +27,8 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from knowledge_experiment import score_mapped  # noqa: E402
 
 RES = Path(__file__).resolve().parent / "results"
 RAW = RES / "eval_runs.jsonl"                    # live runs of the full configuration
@@ -89,6 +91,13 @@ def compare(configs):
         n = sum(o["valid_trials"] for o in out)
         det = sum(o["detected"] for o in out)
         mapped = sum(o["mapping_correct"] for o in out)
+        # SECONDARY (see knowledge_experiment.ALTERNATIVE_ACCEPTABLE): also accept a documented
+        # human-only alternative remedy. Counted only on valid fault trials the strict score missed.
+        alt_extra = sum(1 for r in rows if r.get("kind") == "fault" and "harness_error" not in r
+                        and r.get("injector_effect") and r.get("fault_present_before") is not False
+                        and r.get("fault_present_after") is not False
+                        and not r.get("mapping_correct") and r.get("mapped_action")
+                        and score_mapped(r["fault"], r["mapped_action"])[1])
         live = sum(o["executed_live"] for o in out)
         table.append({
             "config": cfg, "valid_fault_trials": n,
@@ -96,6 +105,7 @@ def compare(configs):
             "false_positive_rate": s["false_positive_rate"],
             "precision": s["precision"],
             "mapping_accuracy": round(mapped / n, 3), "mapping_ci95": "-".join(map(str, wilson(mapped, n))),
+            "mapping_incl_alt": round((mapped + alt_extra) / n, 3),
             "wrong_named_action": sum(o["wrong_named_action"] for o in out),
             "wrong_would_auto_execute": sum(o["wrong_would_auto_execute"] for o in out),
             "executed_live": live,
