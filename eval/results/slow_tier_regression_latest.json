@@ -1,5 +1,5 @@
 {
-  "git_commit": "b696fd1+uncommitted",
+  "git_commit": "893d774",
   "model": "qwen2.5:7b",
   "knowledge": "on",
   "prompt_sha256_full": "a4459ce3b12c",
@@ -46,16 +46,16 @@
       "n": 10,
       "fallback": 0,
       "wrong": [
-        "863f19f6:INCREASE_CPU_LIMIT",
-        "7beaf770:INCREASE_CPU_LIMIT",
-        "3cf547b1:INCREASE_CPU_LIMIT",
-        "4bc54e73:INCREASE_CPU_LIMIT",
-        "9d814916:INCREASE_CPU_LIMIT",
-        "2255e39d:INCREASE_CPU_LIMIT",
-        "d280e661:INCREASE_CPU_LIMIT",
-        "84c01b79:INCREASE_CPU_LIMIT",
-        "edcb7725:INCREASE_CPU_LIMIT",
-        "3fd8bd73:INCREASE_CPU_LIMIT"
+        "bc58b794:INCREASE_CPU_LIMIT",
+        "0881d70c:INCREASE_CPU_LIMIT",
+        "abf0a838:INCREASE_CPU_LIMIT",
+        "5721b99d:INCREASE_CPU_LIMIT",
+        "53be3c44:INCREASE_CPU_LIMIT",
+        "d439dea1:INCREASE_CPU_LIMIT",
+        "49529510:INCREASE_CPU_LIMIT",
+        "112e0108:INCREASE_CPU_LIMIT",
+        "ebbb3236:INCREASE_CPU_LIMIT",
+        "3c90548e:INCREASE_CPU_LIMIT"
       ]
     }
   },
