@@ -13,6 +13,8 @@ its threshold in eval/slow_tier_thresholds.json (or if a model call fell back).
 Usage:  python eval/slow_tier_regression.py [--knowledge on|off] [--model NAME] [--no-fail]
   --knowledge on   show the slow tier past verified incidents (leave-one-out), as production
                    does by default; off = no knowledge (exploration only).
+"strict" is the primary score (ground truth); "incl.alt" also accepts a documented human-only
+alternative remedy (knowledge_experiment.ALTERNATIVE_ACCEPTABLE); a threshold "alt:<fault>" guards it.
 Writes eval/results/slow_tier_regression_latest.json (prompt hash, git commit, per-fault counts).
 """
 import argparse
@@ -30,7 +32,7 @@ sys.path.insert(0, str(ROOT / "eval"))
 
 import action_mapper
 import slow_tier
-from knowledge_experiment import GROUND_TRUTH
+from knowledge_experiment import score_mapped
 from tools import knowledge
 
 RUNS = ROOT / "trajectories" / "runs.jsonl"
@@ -68,7 +70,7 @@ def load_incidents():
 
 def replay(use_knowledge, model):
     recs = load_incidents()
-    counts = defaultdict(lambda: {"correct": 0, "n": 0, "fallback": 0, "wrong": []})
+    counts = defaultdict(lambda: {"correct": 0, "correct_incl_alt": 0, "n": 0, "fallback": 0, "wrong": []})
     for r in recs:
         fault = knowledge.matched_faults(r["signal"])[0]
         ctx = knowledge.context_for(r["signal"], exclude_run_id=r["run_id"]) if use_knowledge else None
@@ -78,9 +80,10 @@ def replay(use_knowledge, model):
         c = counts[fault]
         c["n"] += 1
         c["fallback"] += out["source"] != "model"
-        if mapped in GROUND_TRUTH[fault]:
-            c["correct"] += 1
-        else:
+        strict, incl_alt = score_mapped(fault, mapped)
+        c["correct"] += strict
+        c["correct_incl_alt"] += incl_alt
+        if not strict:
             c["wrong"].append(f"{r['run_id'][:8]}:{mapped}")
     return dict(counts)
 
@@ -95,15 +98,19 @@ def main():
     counts = replay(a.knowledge == "on", a.model)
     thresholds = json.loads(THRESHOLDS.read_text()) if THRESHOLDS.exists() else {}
     failures = []
-    print(f"{'fault':20}{'correct/n':>10}{'rate':>7}{'min':>6}  status")
+    print(f"{'fault':20}{'strict/n':>10}{'rate':>7}{'min':>6}{'incl.alt':>10}  status")
     for fault in sorted(counts):
         c = counts[fault]
         rate = c["correct"] / c["n"]
         need = thresholds.get(fault)
-        ok = (need is None or rate >= need) and c["fallback"] == 0
+        alt_rate = c["correct_incl_alt"] / c["n"]
+        alt_need = thresholds.get(f"alt:{fault}")
+        ok = ((need is None or rate >= need) and (alt_need is None or alt_rate >= alt_need)
+              and c["fallback"] == 0)
         if not ok:
             failures.append(fault)
-        print(f"{fault:20}{c['correct']:>6}/{c['n']:<3}{rate:>7.2f}{(need if need is not None else '-')!s:>6}  "
+        print(f"{fault:20}{c['correct']:>6}/{c['n']:<3}{rate:>7.2f}{(need if need is not None else '-')!s:>6}{c['correct_incl_alt']:>7}/{c['n']:<2}"
+              f"  "
               f"{'ok' if ok else 'FAIL'}" + (f"  wrong: {c['wrong']}" if c["wrong"] else ""))
     LATEST.parent.mkdir(parents=True, exist_ok=True)
     LATEST.write_text(json.dumps({

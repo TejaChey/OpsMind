@@ -52,6 +52,18 @@ GROUND_TRUTH = {   # known correct remediation per fault (CLAUDE.md "Evaluation 
     "dependency-down": {"RESTART_DEPENDENCY"},
     "config-regression": {"ROLLBACK_CONFIG"},
 }
+# SECONDARY scoring only (added 2026-10-15, AFTER seeing the CPU results; always reported next to the
+# strict GROUND_TRUTH above, never instead of it). A defensible alternative remedy that policy sends
+# to a human: for a CPU spike, raising the CPU limit. The strict number stays the primary one.
+ALTERNATIVE_ACCEPTABLE = {"cpu-spike": {"INCREASE_CPU_LIMIT"}}
+
+
+def score_mapped(fault, mapped):
+    """(strict_correct, correct_including_alternative) for one mapped action, decided in code."""
+    strict = mapped in GROUND_TRUTH[fault]
+    return strict, strict or mapped in ALTERNATIVE_ACCEPTABLE.get(fault, set())
+
+
 # The menu phrase that names each fault's correct remedy (removed in the *_ablated conditions).
 MENU_PHRASE = {
     "oom": r"increase\s+the\s+container's\s+memory\s+limit;\s*",

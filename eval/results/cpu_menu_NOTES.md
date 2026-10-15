@@ -18,7 +18,13 @@ Remapping every proposal stored in the repo with the old and new mapper: 0 of 22
 change, so existing behaviour is untouched.
 
 ## What this does and does not show
-* Scoring is NOT changed: the ground truth for cpu-spike is still `TERMINATE_QUERY`, so strict CPU
+* Scoring decision (2026-10-15, made after seeing these results, so disclosed): the strict ground truth
+  is NOT changed and stays the primary number. A SECOND number also accepts the human-only capacity fix
+  (`knowledge_experiment.ALTERNATIVE_ACCEPTABLE`, cpu-spike only); the gate prints both. Replay: cpu-spike
+  strict 0/10, including the alternative 10/10; every other fault identical in both columns. Threshold
+  `alt:cpu-spike` = 1.0 guards the menu item (its failure path was not exercised: it would need a model
+  re-run with the item removed).
+* (Original note, still true:) the ground truth for cpu-spike is still `TERMINATE_QUERY`, so strict CPU
   mapping accuracy is still 0/10. The model now names a different, defensible action (a capacity
   change, blocked for a human, the same kind of fix accepted as correct for OOM and disk). Whether
   to count it as correct is a scoring decision made AFTER seeing results; if adopted, report both
