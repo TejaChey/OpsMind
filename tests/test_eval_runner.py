@@ -40,7 +40,7 @@ class GuardTests(unittest.TestCase):
 
     def test_unapproved_live_actions_are_forced_dry(self):
         for a in ("RESTART_CONTAINER", "TERMINATE_QUERY", "INCREASE_MEMORY_LIMIT",
-                  "FREE_DISK_SPACE", "UNKNOWN_NEEDS_HUMAN"):
+                  "INCREASE_CPU_LIMIT", "FREE_DISK_SPACE", "UNKNOWN_NEEDS_HUMAN"):
             self.assertTrue(self.run_guarded(True, a, False), a)
 
     def test_human_only_faults_are_always_dry(self):

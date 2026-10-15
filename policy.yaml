@@ -20,6 +20,9 @@ actions:
   INCREASE_MEMORY_LIMIT:    # riskier: changes resource limits, so a human decides
     auto_approve: false
     min_confidence: 1.0
+  INCREASE_CPU_LIMIT:       # capacity change: a human decides (no executor exists)
+    auto_approve: false
+    min_confidence: 1.0
   INCREASE_DISK:           # capacity change: a human decides
     auto_approve: false
     min_confidence: 1.0

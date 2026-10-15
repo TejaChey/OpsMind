@@ -11,6 +11,7 @@ from enum import Enum
 class Action(str, Enum):
     RESTART_CONTAINER = "RESTART_CONTAINER"
     INCREASE_MEMORY_LIMIT = "INCREASE_MEMORY_LIMIT"
+    INCREASE_CPU_LIMIT = "INCREASE_CPU_LIMIT"
     TERMINATE_QUERY = "TERMINATE_QUERY"
     ROLLBACK_CONFIG = "ROLLBACK_CONFIG"
     RESTART_DEPENDENCY = "RESTART_DEPENDENCY"
@@ -26,6 +27,11 @@ RULES = {
         r"\b(increase|raise|bump|boost|expand|enlarge|add|allocate|grow)\b.{0,40}\b(memory|ram)\b",
         r"\b(memory|ram)\b.{0,30}\b(limit|cap|allocation)\b.{0,30}\b(increase|raise|higher|larger|bigger)",
         r"\b(more|additional)\s+(memory|ram)\b",
+    ],
+    Action.INCREASE_CPU_LIMIT: [
+        r"\b(increase|raise|bump|boost|expand|enlarge|add|allocate|grow)\b.{0,40}\b(cpus?|vcpus?|cores?)\b",
+        r"\b(cpus?|cores?)\b.{0,30}\b(limit|cap|allocation|quota)\b.{0,30}\b(increase|raise|higher|larger|bigger)",
+        r"\b(more|additional)\s+(cpus?|vcpus?|cores?|cpu\s+(cores?|capacity|resources?))\b",
     ],
     Action.RESTART_CONTAINER: [
         r"\b(restart|reboot|bounce)\b",

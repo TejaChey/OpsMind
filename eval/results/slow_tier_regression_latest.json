@@ -1,9 +1,9 @@
 {
-  "git_commit": "1d958d8+uncommitted",
+  "git_commit": "6d76be9+uncommitted",
   "model": "qwen2.5:7b",
   "knowledge": "on",
-  "prompt_sha256_full": "6523a8490330",
-  "prompt_sha256_no_deploy": "27d0ff497154",
+  "prompt_sha256_full": "a4459ce3b12c",
+  "prompt_sha256_no_deploy": "af539c7e2991",
   "counts": {
     "oom": {
       "correct": 16,
@@ -40,16 +40,16 @@
       "n": 10,
       "fallback": 0,
       "wrong": [
-        "863f19f6:INCREASE_MEMORY_LIMIT",
-        "7beaf770:INCREASE_MEMORY_LIMIT",
-        "3cf547b1:INCREASE_MEMORY_LIMIT",
-        "4bc54e73:INCREASE_MEMORY_LIMIT",
-        "9d814916:INCREASE_MEMORY_LIMIT",
-        "2255e39d:INCREASE_MEMORY_LIMIT",
-        "d280e661:INCREASE_MEMORY_LIMIT",
-        "84c01b79:INCREASE_MEMORY_LIMIT",
-        "edcb7725:INCREASE_MEMORY_LIMIT",
-        "3fd8bd73:INCREASE_MEMORY_LIMIT"
+        "863f19f6:INCREASE_CPU_LIMIT",
+        "7beaf770:INCREASE_CPU_LIMIT",
+        "3cf547b1:INCREASE_CPU_LIMIT",
+        "4bc54e73:INCREASE_CPU_LIMIT",
+        "9d814916:INCREASE_CPU_LIMIT",
+        "2255e39d:INCREASE_CPU_LIMIT",
+        "d280e661:INCREASE_CPU_LIMIT",
+        "84c01b79:INCREASE_CPU_LIMIT",
+        "edcb7725:INCREASE_CPU_LIMIT",
+        "3fd8bd73:INCREASE_CPU_LIMIT"
       ]
     }
   },
