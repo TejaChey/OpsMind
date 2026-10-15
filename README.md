@@ -139,6 +139,10 @@ Comparison on the same 70 saved signals (decision quality only; offline runs exe
   It also follows precedent, so a wrong match would copy a wrong remedy. The code withholds
   the knowledge unless the signal matches exactly one fault type.
 
+- Fault-specific verification matters: on held faults (config, disk) a plain "container healthy +
+  SELECT 1" check wrongly passed while the fault-specific check correctly rejected (2/4 vs 0/4,
+  n=1 per fault; see `eval/results/verification_wrong_fix_NOTES.md`).
+
 ### Limits
 
 n=10 per fault, one machine, one model pair, temperature 0. The knowledge bundle was learned

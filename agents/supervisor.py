@@ -27,6 +27,7 @@ import action_mapper
 import fast_tier
 import slow_tier
 from tools import deploy, executor, knowledge
+from tools.jsonl_io import append_jsonl
 from verify import health_check
 
 # Which extra recovery signal verify() must see after an action (None = health + SELECT 1 only).
@@ -38,9 +39,7 @@ TRAJECTORY_FILE = Path(__file__).resolve().parent.parent / "trajectories" / "run
 
 
 def write_trajectory(record, path=TRAJECTORY_FILE):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record) + "\n")
+    append_jsonl(path, record)
 
 
 def attach_running_query(signal, db):

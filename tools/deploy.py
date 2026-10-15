@@ -11,6 +11,7 @@ Run `python tools/deploy.py show` to print the history.
 """
 import json
 import os
+import sys
 import tempfile
 import time
 import urllib.error
@@ -18,6 +19,9 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `tools` imports when run as a script
+from tools.jsonl_io import append_jsonl  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DEPLOYS_DIR = ROOT / "deploys"
@@ -64,9 +68,7 @@ def read_history(path=HISTORY_FILE):
 
 
 def append_history(entry, path=HISTORY_FILE):
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    with Path(path).open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    append_jsonl(path, entry)
 
 
 def read_live(path=LIVE_FILE):
