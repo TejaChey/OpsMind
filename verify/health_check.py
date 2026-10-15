@@ -5,8 +5,9 @@ Pure code, no model. Two checks, both must pass inside one overall timeout:
   2. a real Postgres connection succeeds and `SELECT 1` returns 1
 With expected_signal="cpu" (used after TERMINATE_QUERY) a third check runs once 1 and 2 pass:
   3. CPU share of the limit, re-sampled over `cpu_window` seconds, is back below
-     `cpu_threshold`. If the share can't be measured (no CPU limit, unreadable cgroup) the
-     result is verified=False: fail closed.
+     `cpu_threshold`. A sample that is still too high is re-sampled up to `cpu_resamples` more times
+     (the terminated query's tail can still be on the clock), and the LAST sample decides. If the
+     share can't be measured (no CPU limit, unreadable cgroup) the result is verified=False: fail closed.
 With expected_signal="disk" (a disk fault was addressed) the third check is instead:
   3. a real write probe (the fast tier's 64 KB INSERT) succeeds AND the data volume is below
      `disk_threshold` full. If either can't be measured the result is verified=False.
@@ -36,6 +37,7 @@ TIMEOUT = 30
 INTERVAL = 2
 CPU_WINDOW = 5
 CPU_THRESHOLD = 0.5   # cpu_share_of_limit must be strictly below this
+CPU_RESAMPLES = 2     # extra samples allowed ONLY while the last one is still too high (the killed query's tail)
 NET_PROBES = 3
 NET_LATENCY_THRESHOLD = 1.0   # seconds per connect+SELECT 1 (healthy baseline is ~0.05s)
 DISK_THRESHOLD = 0.90  # data volume usage must be strictly below this (the fast-tier floor is 0.95)
@@ -195,7 +197,7 @@ def _check_disk(container, host, port, user, password, dbname, threshold):
 def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, interval=INTERVAL,
            expected_signal=None, cpu_window=CPU_WINDOW, cpu_threshold=CPU_THRESHOLD,
            disk_threshold=DISK_THRESHOLD, latency_threshold=NET_LATENCY_THRESHOLD,
-           app_port=None):
+           app_port=None, cpu_resamples=CPU_RESAMPLES):
     """Returns {verified, elapsed_seconds, health_status, reason} (+ cpu_share_after and
     cpu_threshold when expected_signal="cpu"; disk_percent_used_after, write_failed_after and
     disk_threshold when expected_signal="disk")."""
@@ -208,19 +210,29 @@ def verify(container, host, port, user, password, dbname, timeout=TIMEOUT, inter
         elif health == "healthy":
             ok, db_err = _select_one(host, port, user, password, dbname)
             if ok and expected_signal == "cpu":
-                share, cpu_err = _cpu_share(container, cpu_window)
+                samples, cpu_err = [], None
+                for _ in range(1 + max(0, cpu_resamples)):
+                    share, cpu_err = _cpu_share(container, cpu_window)
+                    if share is None:
+                        break                      # unmeasurable: fail closed, never retry past it
+                    samples.append(round(share, 3))
+                    if share < cpu_threshold:
+                        break                      # recovered; only a still-high sample is re-sampled
+                share = None if cpu_err else samples[-1]   # the verdict is the LAST sample
                 result = {"verified": False, "health_status": health,
                           "cpu_share_after": None if share is None else round(share, 3),
-                          "cpu_threshold": cpu_threshold}
+                          "cpu_samples": samples, "cpu_threshold": cpu_threshold}
                 if share is None:
                     result["reason"] = f"healthy, but CPU share not measurable: {cpu_err}"
                 elif share < cpu_threshold:
                     result.update(verified=True, reason=(
                         f"healthy, SELECT 1 succeeded, CPU share {share:.3f} < {cpu_threshold}"
-                        f" over {cpu_window}s"))
+                        f" over {cpu_window}s" + (f" (after {len(samples)} samples {samples})"
+                                                   if len(samples) > 1 else "")))
                 else:
                     result["reason"] = (f"healthy, but CPU share {share:.3f} >= {cpu_threshold}"
-                                        f" over {cpu_window}s: CPU did not recover")
+                                        f" over {cpu_window}s: CPU did not recover"
+                                        + (f" (samples {samples})" if len(samples) > 1 else ""))
                 result["elapsed_seconds"] = round(time.monotonic() - t0, 2)
                 return result
             app_fields = {}
