@@ -71,5 +71,17 @@ class EvalDoesNotTouchRealLogs(unittest.TestCase):
         self.assertNotIn("record_incident", src)   # never writes to the knowledge bundle
 
 
+
+
+class SecondaryScoring(unittest.TestCase):
+    def test_strict_and_alternative_are_separate(self):
+        from knowledge_experiment import score_mapped
+        self.assertEqual(score_mapped("cpu-spike", "TERMINATE_QUERY"), (True, True))
+        self.assertEqual(score_mapped("cpu-spike", "INCREASE_CPU_LIMIT"), (False, True))   # alt only
+        self.assertEqual(score_mapped("cpu-spike", "INCREASE_MEMORY_LIMIT"), (False, False))
+        self.assertEqual(score_mapped("oom", "INCREASE_MEMORY_LIMIT"), (True, True))
+        self.assertEqual(score_mapped("oom", "INCREASE_CPU_LIMIT"), (False, False))        # no alt for oom
+
+
 if __name__ == "__main__":
     unittest.main()
