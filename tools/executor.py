@@ -57,9 +57,15 @@ SELECT pid, usename, state,
 FROM pg_stat_activity
 WHERE state = 'active' AND backend_type = 'client backend'
   AND datname = current_database() AND pid <> pg_backend_pid()
+  AND (%(user)s IS NULL OR usename = %(user)s)
+  AND EXTRACT(EPOCH FROM clock_timestamp() - query_start) >= %(min_seconds)s
 ORDER BY query_start ASC
 LIMIT 1
 """
+
+# Guards for what the executor may terminate (the context lookup in the supervisor is unfiltered):
+# only a query older than this, and only one owned by the service's own database user.
+MIN_TARGET_SECONDS = 5
 
 
 def _connect(db):
@@ -68,9 +74,9 @@ def _connect(db):
     return conn
 
 
-def find_longest_query(cur):
-    """The longest-running active query as a dict, or None."""
-    cur.execute(TARGET_SQL)
+def find_longest_query(cur, user=None, min_seconds=0):
+    """The longest-running active query as a dict, or None. `user` / `min_seconds` narrow it."""
+    cur.execute(TARGET_SQL, {"user": user, "min_seconds": min_seconds})
     row = cur.fetchone()
     if row is None:
         return None
@@ -90,9 +96,15 @@ def terminate_query(db, dry_run, settle=5):
         return "failed", f"cannot connect to Postgres: {str(e).strip()}", {}
     try:
         with conn.cursor() as cur:
-            target = find_longest_query(cur)
+            target = find_longest_query(cur, user=db.get("user"), min_seconds=MIN_TARGET_SECONDS)
             if target is None:
-                return "no_target", "no active query found to terminate", {}
+                skipped = find_longest_query(cur)  # unfiltered, only to report what the guard skipped
+                if skipped is None:
+                    return "no_target", "no active query found to terminate", {}
+                return "no_target", (f"guard: no active query by user '{db.get('user')}' running at "
+                                     f"least {MIN_TARGET_SECONDS}s; skipped pid {skipped['pid']} "
+                                     f"(user {skipped['usename']}, {skipped['running_seconds']}s)"), \
+                    {"skipped_candidate": skipped}
             evidence = {"target_before": target}
             if dry_run:
                 return "would_execute", (f"would terminate pid {target['pid']} (running "
