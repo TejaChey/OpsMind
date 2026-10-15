@@ -1,0 +1,351 @@
+no action needed
+[control none #0] 8s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #1] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #2] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #3] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #4] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #5] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #6] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #7] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #8] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+no action needed
+[control none #9] 7s {'injector_effect': None, 'final_escalated': False, 'overridden': False, 'mapped_action': None, 'mapping_correct': None, 'exec_status': None, 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.05s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.006s < 1.0s)
+[fault network-partition #0] 28s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is cut off from its network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.05s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.008s < 1.0s)
+[fault network-partition #1] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.06s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.008s < 1.0s)
+[fault network-partition #2] 29s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is cut off from its network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.04s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.006s < 1.0s)
+[fault network-partition #3] 26s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.04s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.007s < 1.0s)
+[fault network-partition #4] 24s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.06s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.014s < 1.0s)
+[fault network-partition #5] 24s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.04s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.007s < 1.0s)
+[fault network-partition #6] 24s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.09s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.033s < 1.0s)
+[fault network-partition #7] 24s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.05s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.009s < 1.0s)
+[fault network-partition #8] 26s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The container is cut off from its Docker network, preventing clients from connecting.
+proposed fix (not executed): Reconnect the container to its Docker network. (confidence 0.95)
+mapped action: RECONNECT_NETWORK
+execution executed: connected opsmind-postgres to services_default
+verification: verified=True in 0.06s (healthy, SELECT 1 succeeded, 3 probes succeeded, max 0.008s < 1.0s)
+[fault network-partition #9] 24s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RECONNECT_NETWORK', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.14s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #0] 11s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.09s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #1] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.11s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #2] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.1s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #3] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.12s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #4] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.13s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #5] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.2s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #6] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.11s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #7] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.14s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #8] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database container is not running, causing the web app to report itself unhealthy.
+proposed fix (not executed): Restart the database container (confidence 1.0)
+mapped action: RESTART_DEPENDENCY
+execution executed: started ['opsmind-postgres']
+verification: verified=True in 6.11s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true)
+[fault dependency-down #9] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'RESTART_DEPENDENCY', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's connection to the database, likely due to a misconfiguration of the database port.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.99)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy 0078555f
+verification: verified=True in 0.04s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy 5065bf49)
+[fault config-regression #0] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's ability to resolve the database's hostname.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.95)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy 5065bf49
+verification: verified=True in 0.04s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy 4112cfe7)
+[fault config-regression #1] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's connection to the database, likely due to a misconfiguration of the database port.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.99)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy 4112cfe7
+verification: verified=True in 0.04s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy b5c3234f)
+[fault config-regression #2] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's ability to resolve the database's hostname.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.95)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy b5c3234f
+verification: verified=True in 0.06s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy f53d66c7)
+[fault config-regression #3] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's connection to the database, likely due to a misconfiguration of the database port.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.95)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy f53d66c7
+verification: verified=True in 0.05s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy df89e128)
+[fault config-regression #4] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's ability to resolve the database's hostname.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.95)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy df89e128
+verification: verified=True in 0.03s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy ee6f610d)
+[fault config-regression #5] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy changed the database port, causing the web app to fail to connect.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.95)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy ee6f610d
+verification: verified=True in 0.05s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy 918f4dbb)
+[fault config-regression #6] 22s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's ability to resolve the database's hostname.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.95)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy 918f4dbb
+verification: verified=True in 0.05s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy b900ebf0)
+[fault config-regression #7] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy changed the database port, breaking the web app's connection.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.99)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy b900ebf0
+verification: verified=True in 0.02s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy db46cb2b)
+[fault config-regression #8] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): A recent config deploy broke the web app's ability to resolve the database's hostname.
+proposed fix (not executed): Roll back the web app's config to the last known-good deploy. (confidence 0.95)
+mapped action: ROLLBACK_CONFIG
+execution executed: rolled back to deploy db46cb2b
+verification: verified=True in 0.04s (healthy, SELECT 1 succeeded, app /health is 200 with db_ok true; live config equals known-good deploy 501b8ddb)
+[fault config-regression #9] 21s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'ROLLBACK_CONFIG', 'mapping_correct': True, 'exec_status': 'executed', 'verified': True, 'gt_recovered': True, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume for the database. (confidence 1.0)
+mapped action: INCREASE_DISK
+blocked pending human approval: INCREASE_DISK has auto_approve: false
+[fault disk-full #0] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'INCREASE_DISK', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume for the database. (confidence 1.0)
+mapped action: INCREASE_DISK
+blocked pending human approval: INCREASE_DISK has auto_approve: false
+[fault disk-full #1] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'INCREASE_DISK', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume or clean up unused data. (confidence 1.0)
+mapped action: UNKNOWN_NEEDS_HUMAN
+blocked pending human approval: UNKNOWN_NEEDS_HUMAN has auto_approve: false
+[fault disk-full #2] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'UNKNOWN_NEEDS_HUMAN', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume for the database. (confidence 1.0)
+mapped action: INCREASE_DISK
+blocked pending human approval: INCREASE_DISK has auto_approve: false
+[fault disk-full #3] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'INCREASE_DISK', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume for the database. (confidence 1.0)
+mapped action: INCREASE_DISK
+blocked pending human approval: INCREASE_DISK has auto_approve: false
+[fault disk-full #4] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'INCREASE_DISK', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume or clean up unused data. (confidence 1.0)
+mapped action: UNKNOWN_NEEDS_HUMAN
+blocked pending human approval: UNKNOWN_NEEDS_HUMAN has auto_approve: false
+[fault disk-full #5] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'UNKNOWN_NEEDS_HUMAN', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume for the database. (confidence 1.0)
+mapped action: INCREASE_DISK
+blocked pending human approval: INCREASE_DISK has auto_approve: false
+[fault disk-full #6] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'INCREASE_DISK', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume or clean up unused data. (confidence 1.0)
+mapped action: UNKNOWN_NEEDS_HUMAN
+blocked pending human approval: UNKNOWN_NEEDS_HUMAN has auto_approve: false
+[fault disk-full #7] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'UNKNOWN_NEEDS_HUMAN', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume for the database. (confidence 1.0)
+mapped action: INCREASE_DISK
+blocked pending human approval: INCREASE_DISK has auto_approve: false
+[fault disk-full #8] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'INCREASE_DISK', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database's data volume is full and writes fail with 'No space left on device'.
+proposed fix (not executed): Increase the size of the data volume for the database. (confidence 1.0)
+mapped action: INCREASE_DISK
+blocked pending human approval: INCREASE_DISK has auto_approve: false
+[fault disk-full #9] 10s {'injector_effect': True, 'final_escalated': True, 'overridden': False, 'mapped_action': 'INCREASE_DISK', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.99)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #0] 45s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.95)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #1] 45s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.95)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #2] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.95)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #3] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.95)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #4] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.95)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #5] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.95)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #6] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.99)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #7] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.99)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #8] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The kernel killed a process in the database container for exceeding its memory limit.
+proposed fix (not executed): Increase the container's memory limit. (confidence 0.99)
+mapped action: INCREASE_MEMORY_LIMIT
+blocked pending human approval: INCREASE_MEMORY_LIMIT has auto_approve: false
+[fault oom #9] 44s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_MEMORY_LIMIT', 'mapping_correct': True, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 0.99)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #0] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 0.99)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #1] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 1.0)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #2] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 0.99)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #3] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 1.0)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #4] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 0.99)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #5] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 0.99)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #6] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 1.0)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #7] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 1.0)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #8] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+escalated to slow tier (model): The database container is pinned at its CPU limit and throttled by the kernel.
+proposed fix (not executed): Increase the container's CPU limit. (confidence 1.0)
+mapped action: INCREASE_CPU_LIMIT
+blocked pending human approval: INCREASE_CPU_LIMIT has auto_approve: false
+[fault cpu-spike #9] 31s {'injector_effect': True, 'final_escalated': True, 'overridden': True, 'mapped_action': 'INCREASE_CPU_LIMIT', 'mapping_correct': False, 'exec_status': 'blocked_pending_human_approval', 'verified': None, 'gt_recovered': None, 'harness_error': None}
+PIPELINE_EXIT 0

@@ -106,38 +106,44 @@ Full tables are in `eval/results/`; the notes there list every limit.
 | Measure | Result |
 |---|---|
 | Detection (real incidents found) | 60 / 60 |
-| Detection by the model alone, without the code floor | 9 / 60 |
+| Detection by the model alone, without the code floor | 10 / 60 |
 | False positives on quiet controls | 0 / 10 |
 | Auto-fixes that recovered the service (network, dependency, config) | 30 / 30 |
 | Verifier false passes | 0 / 30 |
-| Proposal mapped to the correct action | 50 / 60 (all 10 misses are CPU) |
+| Proposal mapped to the correct action (strict ground truth) | 50 / 60 (all 10 misses are CPU) |
+| Same, also accepting the human-only CPU-limit fix (post-hoc secondary score) | 60 / 60 |
 
 Comparison on the same 70 saved signals (decision quality only; offline runs execute nothing):
 
-| Configuration | Recall | Correct action | Wrong actions policy would let run |
+| Configuration | Recall | Correct action (strict) | Wrong actions policy would let run |
 |---|---|---|---|
 | OpsMind (full) | 60/60 | 50/60 | 0 |
-| Single always-on 7b model | 27/60 | 10/60 | 16 |
+| Single always-on 7b model | 10/60 | 10/60 | 0 |
 | Fixed rules, no LLM (restart-first) | 60/60 | 20/60 | 40 |
-| Without the floor | 9/60 | 9/60 | 0 |
-| Without knowledge | 60/60 | 26/60 | 20 |
+| Without the floor | 10/60 | 10/60 | 0 |
+| Without knowledge | 60/60 | 26/60 | 15 |
+
+The single-7b baseline reuses the slow tier's menu, so it is sensitive to the menu's wording: it
+detected 27/60 with the menu before the CPU item was added and 10/60 after. Treat that baseline as a
+range, not one number (`eval/results/eval_baselines_NOTES.md`).
 
 ![comparison](eval/results/charts/fig1_comparison.png)
 ![detection and the floor](eval/results/charts/fig2_detection_floor.png)
 
 ### Findings, including the unflattering ones
 
-- The small fast model alone detects only 15% of real incidents. The deterministic floor is
+- The small fast model alone detects only 17% of real incidents. The deterministic floor is
   what makes detection work.
 - For CPU spikes the slow tier diagnoses correctly, but in the evaluation it proposed "increase the
   memory limit" 10 out of 10 times because its menu had no CPU item. Adding "increase the CPU
   limit" to the menu changed that to 10/10 CPU proposals in a replay (other faults unchanged), still
   blocked for a human by policy. The scored ground truth for CPU is still "terminate the query", and
-  the headline numbers below were measured before this change (see `eval/results/cpu_menu_NOTES.md`).
+  the evaluation below was re-run after this change (see `eval/results/cpu_menu_NOTES.md`).
 - The slow tier's proposal depends on what its plain-language menu offers, and the prompt is
   fragile. A standing regression check (`python eval/slow_tier_regression.py`) replays real
   incidents through it and must be run after any change to the slow tier, prompt, or knowledge.
-- Giving the slow tier past verified incidents lifted correct-action accuracy from 43% to 83%.
+- Giving the slow tier past verified incidents lifted strict correct-action accuracy from 43% to 83%
+  (26 to 50 of 60), and the CPU menu change made the knowledge-off model less stable on OOM.
   It also follows precedent, so a wrong match would copy a wrong remedy. The code withholds
   the knowledge unless the signal matches exactly one fault type.
 

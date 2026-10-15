@@ -1,8 +1,8 @@
-config,valid_fault_trials,recall,recall_ci95,false_positive_rate,precision,mapping_accuracy,mapping_ci95,wrong_named_action,wrong_would_auto_execute,executed_live,auto_fix_success,verifier_false_pass,health_only_false_pass,median_ttd_s
-full,60,1.0,0.94-1.0,0.0,1.0,0.833,0.72-0.907,10,0,30,30,0,0,8.4
-single_7b,60,0.45,0.331-0.575,0.0,1.0,0.167,0.093-0.28,16,16,0,n/a (offline),n/a,n/a,10.2
-fixed_rules,60,1.0,0.94-1.0,0.0,1.0,0.333,0.227-0.459,40,40,0,n/a (offline),n/a,n/a,7.9
-no_floor,60,0.15,0.081-0.261,0.0,1.0,0.15,0.081-0.261,0,0,0,n/a (offline),n/a,n/a,8.4
-no_knowledge,60,1.0,0.94-1.0,0.0,1.0,0.433,0.316-0.559,21,20,0,n/a (offline),n/a,n/a,8.4
-no_policy_gate,60,1.0,0.94-1.0,0.0,1.0,0.833,0.72-0.907,10,10,0,n/a (offline),n/a,n/a,8.4
-health_only_verification,60,1.0,0.94-1.0,0.0,1.0,0.833,0.72-0.907,10,0,30,30,0,0,8.4
+config,valid_fault_trials,recall,recall_ci95,false_positive_rate,precision,mapping_accuracy,mapping_ci95,mapping_incl_alt,wrong_named_action,wrong_would_auto_execute,executed_live,auto_fix_success,verifier_false_pass,health_only_false_pass,median_ttd_s
+full,60,1.0,0.94-1.0,0.0,1.0,0.833,0.72-0.907,1.0,10,0,30,30,0,0,8.6
+single_7b,60,0.167,0.093-0.28,0.0,1.0,0.167,0.093-0.28,0.167,0,0,0,n/a (offline),n/a,n/a,10.4
+fixed_rules,60,1.0,0.94-1.0,0.0,1.0,0.333,0.227-0.459,0.333,40,40,0,n/a (offline),n/a,n/a,7.8
+no_floor,60,0.167,0.093-0.28,0.0,1.0,0.167,0.093-0.28,0.167,0,0,0,n/a (offline),n/a,n/a,8.6
+no_knowledge,60,1.0,0.94-1.0,0.0,1.0,0.433,0.316-0.559,0.6,34,15,0,n/a (offline),n/a,n/a,8.6
+no_policy_gate,60,1.0,0.94-1.0,0.0,1.0,0.833,0.72-0.907,1.0,10,10,0,n/a (offline),n/a,n/a,8.6
+health_only_verification,60,1.0,0.94-1.0,0.0,1.0,0.833,0.72-0.907,1.0,10,0,30,30,0,0,8.6

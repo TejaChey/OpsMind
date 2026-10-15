@@ -30,12 +30,14 @@ python -m unittest discover tests            # expect: Ran 134 tests ... OK
 python tools/knowledge.py validate           # expect: conformant
 python eval/summarize_eval.py --compare      # recomputes the comparison table from saved rows
 python eval/make_charts.py                   # regenerates eval/results/charts/*
-git log --oneline | wc -l                    # expect 30; every milestone is its own commit
+git log --oneline | wc -l                    # many; every milestone is its own commit
 git status --short                           # expect clean (OPSMIND_BRIEF.md is ignored)
 ```
 Expected `--compare` rows (config, recall, false-pos, mapping accuracy, wrong-named, wrong-that-policy-lets-run):
-full 1.0/0.0/0.833/10/0 · single_7b 0.45/0.0/0.167/16/16 · fixed_rules 1.0/0.0/0.333/40/40 ·
-no_floor 0.15/0.0/0.15/0/0 · no_knowledge 1.0/0.0/0.433/21/20 · no_policy_gate 1.0/0.0/0.833/10/10 ·
+full 1.0/0.0/0.833/10/0 · single_7b 0.167/0.0/0.167/0/0 · fixed_rules 1.0/0.0/0.333/40/40 ·
+no_floor 0.167/0.0/0.167/0/0 · no_knowledge 1.0/0.0/0.433/34/15 · no_policy_gate 1.0/0.0/0.833/10/10 ·
+(values from the 2026-10-15 re-run after the CPU menu item was added; the previous run is in eval/results/archive_run2_*;
+ a new `mapping_incl_alt` column is the post-hoc secondary score: full 1.0, no_knowledge 0.6)
 health_only_verification same as full (verifier false-pass 0/30).
 
 ## 2. Claims, where the evidence is, and how to check
@@ -66,7 +68,7 @@ health_only_verification same as full (verifier false-pass 0/30).
 3. **Floors not weakened.** Compare `agents/fast_tier.py::apply_floor` with the brief; mutate a threshold
    (e.g. `DISK_USED_THRESHOLD=0.99`) and confirm tests fail; restore. Clear `__pycache__` between mutations
    (a stale `.pyc` once masked a restore).
-4. **Model-alone recall 9/60.** It is computed from each live row's `model_raw.escalate`; confirm in the JSONL.
+4. **Model-alone recall 10/60** (9/60 before the 2026-10-15 re-run). It is computed from each live row's `model_raw.escalate`; confirm in the JSONL.
 5. **Independent ground truth really is independent.** `eval/ground_truth.py` vs `verify/health_check.py`.
 6. **Knowledge leak.** `context_for` must not expose the authored `correct_fix`, findings, policy or enum
    names (`tests/test_knowledge_context.py::test_no_answer_key_in_the_context`).
@@ -80,7 +82,7 @@ health_only_verification same as full (verifier false-pass 0/30).
 * **Live approvals.** The user explicitly approved the FIRST live run of `RECONNECT_NETWORK`, `RESTART_DEPENDENCY`, `ROLLBACK_CONFIG` (each asked and answered). Later, additional live runs of those SAME approved kinds were made without asking each time: an executor alias test, a second and third rollback (incl. host variant), and the 30 live eval fixes. `RESTART_CONTAINER` and `TERMINATE_QUERY` were never run live in the real pipeline (harness only); `INCREASE_*`/`FREE_DISK_SPACE` have no executors.
 * **`policy.yaml` entries added** (brief says ask before policy changes; the user said "go ahead / whatever you think is good"): human-only `INCREASE_DISK`, `FREE_DISK_SPACE`; auto-approve `RECONNECT_NETWORK` (0.7), `RESTART_DEPENDENCY` (0.7), `ROLLBACK_CONFIG` (0.8).
 * **Mistakes found by the work itself and fixed**: reconnect lost DNS aliases; first deploy status was a false "good" (one early healthy probe); log.md dropped old entries; the Fault 6 prompt change regressed Faults 4/5 (no slow-tier regression check existed); the disk injector destroyed its own fault via a Postgres PANIC (run 1 archived as `archive_run1_*`); "time to detect" was end-of-pipeline; the regression gate replayed stale signals.
-* **Still weak / not solved**: CPU spike (slow tier proposes "increase memory limit" 10/10; gate threshold 0.0 documents it); the slow tier is prompt-fragile; the conditional deploy-prompt change is inert in practice because every production signal now carries `last_deploy`.
+* **Still weak / not solved**: CPU spike (strict ground truth is terminate-query: 0/10; since the CPU menu item was added the slow tier proposes "increase CPU limit" 10/10, scored only by the post-hoc secondary column; gate threshold 0.0 strict, alt:cpu-spike 1.0); the slow tier is prompt-fragile; the conditional deploy-prompt change is inert in practice because every production signal now carries `last_deploy`.
 * **Not live-demonstrated**: the benefit of fault-specific verification (all live fixes were correct, so health-only false-pass was 0/30); it was shown only on held faults earlier.
 * **Evaluation limits**: n=10 per fault; one machine; temperature 0; the knowledge was learned from earlier dev runs of the same faults; baselines are one reasonable implementation each and run OFFLINE (decision quality only, no fix success).
 * **NOT DONE**: dashboard, README, paper draft, slide deck, Phase 1 cascading failures (only a 2-service environment exists), Phase 2 CI-triage domain, brief backlog items (TERMINATE_QUERY targeting guard, JSONL file lock, CPU recovery-threshold tuning), and a Windows re-test after the changes (macOS only).
