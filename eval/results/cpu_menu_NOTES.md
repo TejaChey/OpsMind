@@ -35,3 +35,20 @@ change, so existing behaviour is untouched.
   observation than ten independent ones.
 * Rule 4 check: the menu item describes an action that exists in the mapper and policy; the model
   is still free to propose anything, and nothing forces it onto an automatable action.
+
+## CPU re-sample on a real CPU spike (2026-10-21)
+
+`verify(expected_signal="cpu")` run against the real container with `faults/cpu_spike.py`
+(40 s query), one trial per case:
+
+| case | samples | verdict |
+|---|---|---|
+| idle | [0.021] | verified |
+| during the spike | [1.005, 1.012, 1.003] | not verified (CPU did not recover) |
+| spike ending mid-check (the "tail") | [0.604, 0.023] | verified after the re-sample |
+| after the spike | [0.027] | verified |
+
+Limits: n=1 per case; the spike was ended by the query's own `statement_timeout`, NOT by the
+`TERMINATE_QUERY` executor (that is a live action and was not approved; the slow tier proposes
+INCREASE_CPU_LIMIT for CPU, so the executor path is not reached in practice). This shows the
+verifier's sampling on real CPU load, not a real post-termination run.
