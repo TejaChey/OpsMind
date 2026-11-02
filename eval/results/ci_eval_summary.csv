@@ -1,0 +1,15 @@
+metric,k,n,rate,ci_lo,ci_hi,note
+detected (full system),15,15,1.0,0.796,1,
+"detected (model alone, no floor)",0,15,0.0,0,0.204,
+false positives on green controls,0,5,0.0,0,0.434,
+mapped correctly [flaky-network],5,5,1.0,0.566,1,
+retry-on-red correct [flaky-network],5,5,1.0,0.566,1,fixed rule: always re-run
+mapped correctly [test-regression],0,5,0.0,0,0.434,
+mapped correctly incl. alternative [test-regression],5,5,1.0,0.566,1,post-hoc secondary scoring
+retry-on-red correct [test-regression],0,5,0.0,0,0.434,fixed rule: always re-run
+mapped correctly [missing-dependency],5,5,1.0,0.566,1,
+retry-on-red correct [missing-dependency],0,5,0.0,0,0.434,fixed rule: always re-run
+auto-fix executed and truly recovered (independent),5,5,1.0,0.566,1,
+verifier false-passes (verified but not recovered),0,5,0.0,0,0.434,
+wrong actions that actually executed (full system),0,15,0.0,0,0.204,
+wrong actions retry-on-red would run,10,15,0.667,0.417,0.848,

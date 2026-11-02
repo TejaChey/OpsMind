@@ -158,6 +158,21 @@ from development runs of the same faults, so generalisation to new fault variant
 lightly tested (one variant, n=3). Offline configurations cannot show whether a fix works.
 OOM, CPU and disk fixes are human-only, so recovery is not measured for them.
 
+## Phase 1 and Phase 2
+
+**Phase 1 (cascading failures).** Redis is a second dependency of the web app; its `/health` reports `db_ok` and `redis_ok`.
+Stopping Redis makes the *app* unhealthy while Postgres is fine, so the symptom and the cause are in different containers.
+`python faults/dependency_down.py --dependency opsmind-redis --hold` injects it. The slow tier located Redis as the cause, the
+action went through `RESTART_DEPENDENCY` (target chosen in code: only a stopped container is started; the healthy database is never
+touched) and a code guard blocks a generic "restart the container" when the cache is the one that is down. First live run verified
+(app reports both dependencies OK). Limit: one live run plus one dry run; the full 70-trial evaluation was not re-run with the
+cache present.
+
+**Phase 2 (CI triage).** The same loop on a real local pipeline (`ci/`): fetch, deps, compile and test steps produce real logs.
+Faults: flaky outage (fix: re-run), bad commit (fix: revert), missing runner package (human-only; a re-run cannot help).
+Results and limits: [eval/results/ci_eval_NOTES.md](eval/results/ci_eval_NOTES.md). Try it: `python ci/ci_faults.py flaky-network && python ci/ci_supervisor.py`.
+It uses a local pipeline, not GitHub Actions logs, because GitHub only serves job logs to an authenticated caller.
+
 ## Repository layout
 
 ```
