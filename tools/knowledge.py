@@ -100,6 +100,17 @@ FAULTS = {
         "findings": ["With facts about both containers the slow tier located the real cause (database exited, app only a symptom) in all runs so far.", "The executor starts only a container whose real state is not running; the target comes from code, not the model's words."],
         "steps": ["Check the app's /health and each container's state.", "Escalate (floor) and diagnose.", "Start the stopped dependency; verify DB healthy, SELECT 1, and app /health 200."],
     },
+    "cache-down": {
+        "title": "Cache down (cascading failure)",
+        "description": "The Redis cache the web app also depends on is not running. The app reports unhealthy while the database is fine: the symptom is in one service, the cause in another, and a second possible cause (the database) has to be ruled out.",
+        "services": ["redis", "web-app", "postgres"],
+        "signals": ["`redis_container_state` is not 'running'", "`app_health_status` is not 200 with `app_db_ok` true and `app_redis_ok` false"],
+        "floor": "redis_container_state not running (and the app-unhealthy floor) forces escalate=true and severity >= 0.8",
+        "correct_fix": "RESTART_DEPENDENCY (start the cache; the healthy database must NOT be restarted)",
+        "actions": ["RESTART_DEPENDENCY", "RESTART_CONTAINER"],
+        "findings": ["A generic 'restart the container' proposal would restart the monitored database, which is healthy; the mapper therefore sends 'restart the Redis/cache container' to RESTART_DEPENDENCY and a code guard blocks a generic restart when the cache is the one that is down."],
+        "steps": ["Check the app's /health (which dependency does it blame?) and each container's state.", "Escalate (floor) and diagnose.", "Start only the stopped container; verify the app reports db_ok AND redis_ok true."],
+    },
     "config-regression": {
         "title": "Config regression after deploy",
         "description": "A bad config deploy broke the web app while the database stayed healthy.",
@@ -115,11 +126,12 @@ FAULTS = {
 
 SERVICES = {
     "postgres": ("Postgres database", "The target database container (opsmind-postgres): 256 MB memory, 0.5 CPU, 96 MB data volume."),
+    "redis": ("Redis cache", "The cache container (opsmind-redis) the web app pings in its /health, added in Phase 1 so one service's symptom can come from another service's failure."),
     "web-app": ("Web app", "A small Flask service (opsmind-app) whose /health does a real database round trip; its config is deployed from a file."),
 }
 
 # Detection order when one run matches several fault types (documented, deterministic).
-PRIORITY = ["dependency-down", "oom", "disk-full", "cpu-spike", "network-partition", "config-regression"]
+PRIORITY = ["dependency-down", "cache-down", "oom", "disk-full", "cpu-spike", "network-partition", "config-regression"]
 
 
 def _iso(ts):
@@ -138,6 +150,7 @@ def matched_faults(signal):
     app_bad = isinstance(app, int) and not isinstance(app, bool) and app != 200
     hits = {
         "dependency-down": s.get("container_state") not in (None, "running"),
+        "cache-down": s.get("redis_container_state") not in (None, "running"),
         "oom": (s.get("oom_kill_delta") or 0) > 0,
         "disk-full": s.get("write_failed") is True or (s.get("data_disk_percent_used") or 0) >= 0.95,
         "cpu-spike": (s.get("cpu_share_of_limit") or 0) >= 0.8 and (s.get("cpu_throttled_periods") or 0) > 0,

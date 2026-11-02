@@ -75,13 +75,28 @@ _ROLLBACK_ITEM = re.compile(r"roll\s+back\s+the\s+web\s+app's\s+config\s+to\s+th
                             r"known-good\s+deploy;\s*")
 
 
-def build_system_prompt(has_deploy=True):
-    """SYSTEM_PROMPT exactly as written when has_deploy, else without the two deploy pieces."""
-    if has_deploy:
-        return SYSTEM_PROMPT
-    p, n1 = _DEPLOY_PARAGRAPH.subn("", SYSTEM_PROMPT, count=1)
-    p, n2 = _ROLLBACK_ITEM.subn("", p, count=1)
-    assert n1 == 1 and n2 == 1, "deploy-specific prompt pieces not found"
+# Added ONLY when the input has cache facts (the web app also depends on a Redis cache): without
+# them this text would describe fields that are not there.
+_CACHE_PARAGRAPH = """- redis_container_state is Docker's state for the cache (Redis) container the web app also
+  depends on. app_db_ok and app_redis_ok are what the app itself reports for each of its two
+  dependencies (null = not measured). The app is unhealthy if EITHER dependency fails, so look
+  at which one is failing before deciding what to fix; the app is only the symptom.
+"""
+_CACHE_MENU_ITEM = "restart a dependency container (the database or the cache) that is not running; "
+
+
+def build_system_prompt(has_deploy=True, has_cache=False):
+    """SYSTEM_PROMPT exactly as written when has_deploy and not has_cache; otherwise without the
+    two deploy pieces and/or with the two cache pieces."""
+    p = SYSTEM_PROMPT
+    if not has_deploy:
+        p, n1 = _DEPLOY_PARAGRAPH.subn("", p, count=1)
+        p, n2 = _ROLLBACK_ITEM.subn("", p, count=1)
+        assert n1 == 1 and n2 == 1, "deploy-specific prompt pieces not found"
+    if has_cache:
+        anchor, menu = "- If the facts do not pin down the cause", "or flag the incident for human review"
+        assert anchor in p and menu in p, "cache prompt anchors not found"
+        p = p.replace(anchor, _CACHE_PARAGRAPH + anchor, 1).replace(menu, _CACHE_MENU_ITEM + menu, 1)
     return p
 
 
@@ -128,14 +143,16 @@ def ask_model(model, fast_result, knowledge=None, system_prompt=None):
                                        "db_connect_seconds", "pg_ready_inside",
                                        "container_state", "app_health_status",
                                        "app_container_state", "app_health_error",
-                                       "last_deploy")
+                                       "redis_container_state", "app_db_ok",
+                                       "app_redis_ok", "last_deploy")
                    if k in sig},
         "fast_tier_model_output": fast_result["model_raw"],
         "fast_tier_final_decision": fast_result["decision"],
         "fast_tier_decision_was_overridden_by_code": fast_result["overridden"],
     }
     prompt = (system_prompt if system_prompt is not None
-              else build_system_prompt("last_deploy" in sig))
+              else build_system_prompt("last_deploy" in sig,
+                                                       "redis_container_state" in sig))
     if knowledge is not None:
         facts["knowledge_base"] = knowledge
         prompt = prompt + KNOWLEDGE_NOTE

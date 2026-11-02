@@ -7,7 +7,7 @@ tags:
 - config-regression
 generated:
   by: opsmind-knowledge-writer/0.1
-  at: '2026-10-14T15:05:04Z'
+  at: '2026-11-02T08:24:59Z'
 sources:
 - id: run-0a71189a
   resource: ../trajectories/runs.jsonl#0a71189a-8eae-4ef4-9824-29999ce85b1a

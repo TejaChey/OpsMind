@@ -30,6 +30,20 @@ services:
       retries: 3
       start_period: 10s
 
+  # Cache (Phase 1, cascading failures): the app's /health also pings this. Stopping it makes
+  # the APP report unhealthy while Postgres is fine, so the symptom (app) and the cause (redis)
+  # are in different containers, and a second possible cause (postgres) must be ruled out.
+  redis:
+    image: redis:7-alpine
+    container_name: opsmind-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+
   # Second service (Phase 1): a small web app whose /health does a real round trip to Postgres.
   # Host port 5050 (not 5000: macOS uses 5000 for AirPlay). Fault: stop `postgres`, this stays up.
   app:
@@ -40,12 +54,14 @@ services:
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
+      REDIS_HOST: redis
     ports:
       - "${APP_HOST_PORT}:5000"
     volumes:
       - ../deploys/live:/config:ro   # the deployed config (see tools/deploy.py)
     depends_on:
       - postgres
+      - redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:5000/health', timeout=3)"]

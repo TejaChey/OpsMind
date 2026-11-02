@@ -185,20 +185,32 @@ def container_state(name):
     return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
 
 
-def probe_app_health(port, timeout=5):
-    """Real HTTP GET of the app's /health. Returns (http_status or None, error or None):
-    the status is None only when the app could not be reached at all."""
+def probe_app(port, timeout=5):
+    """Real HTTP GET of the app's /health. Returns (http_status or None, error or None, body):
+    the status is None only when the app could not be reached at all; body is the parsed JSON
+    (a dict, possibly empty) so callers can read db_ok / redis_ok."""
     try:
         with urllib.request.urlopen(f"http://localhost:{port}/health", timeout=timeout) as r:
-            return r.status, None
+            return r.status, None, _json_dict(r.read())
     except urllib.error.HTTPError as e:
-        try:
-            err = json.loads(e.read().decode()).get("error")
-        except (ValueError, AttributeError):
-            err = None
-        return e.code, err
+        body = _json_dict(e.read())
+        return e.code, body.get("error"), body
     except (urllib.error.URLError, OSError) as e:
-        return None, f"app unreachable: {e}"
+        return None, f"app unreachable: {e}", {}
+
+
+def _json_dict(raw):
+    try:
+        obj = json.loads(raw.decode())
+    except (ValueError, AttributeError):
+        return {}
+    return obj if isinstance(obj, dict) else {}
+
+
+def probe_app_health(port, timeout=5):
+    """(http_status or None, error or None); see probe_app."""
+    status, err, _ = probe_app(port, timeout)
+    return status, err
 
 
 def read_pg_ready_inside(container, user, dbname):
@@ -229,16 +241,26 @@ def probe_connection(host, port, user, password, dbname):
         return False, str(e).strip()
 
 
+def _flag(body, key):
+    v = body.get(key)
+    return v if isinstance(v, bool) else None   # absent / unmeasurable is None, never False
+
+
 def collect_signal(container, host, port, user, password, dbname, window, app=None,
-                   app_port=None):
+                   app_port=None, cache=None):
     """Sample the monitored container (and, if `app`/`app_port` are given, the web app that
     depends on it). Unmeasurable facts are None, never a made-up 0."""
     state = container_state(container)
     extra = {"container_state": state}
     if app and app_port:
-        app_status, app_err = probe_app_health(app_port)
+        app_status, app_err, app_body = probe_app(app_port)
         extra.update({"app_container_state": container_state(app),
                       "app_health_status": app_status, "app_health_error": app_err})
+        if cache:   # which dependency the app blames: True/False as the app reports, else None
+            extra.update({"app_db_ok": _flag(app_body, "db_ok"),
+                          "app_redis_ok": _flag(app_body, "redis_ok")})
+    if cache:
+        extra["redis_container_state"] = container_state(cache)
     if state != "running":
         ok, err = probe_connection(host, port, user, password, dbname)
         return {**extra, "data_disk_percent_used": None, "write_failed": None,
@@ -333,7 +355,8 @@ def ask_model(model, signal):
             "cpu_share_of_limit", "cpu_throttled_periods",
             "data_disk_percent_used", "write_failed", "write_error",
             "db_connect_seconds", "pg_ready_inside", "container_state",
-            "app_health_status", "app_container_state", "app_health_error")
+            "app_health_status", "app_container_state", "app_health_error",
+            "redis_container_state", "app_db_ok", "app_redis_ok")
     facts = {k: signal[k] for k in keys if k in signal}
     r = requests.post(f"{OLLAMA_URL}/api/chat", timeout=120, json={
         "model": model,
@@ -370,6 +393,9 @@ def apply_floor(decision, signal):
         floor = max(floor, SERVICE_SEVERITY_FLOOR)
     cstate = signal.get("container_state")
     if cstate is not None and cstate != "running":
+        floor = max(floor, SERVICE_SEVERITY_FLOOR)
+    rstate = signal.get("redis_container_state")   # the cache the app depends on (Phase 1)
+    if rstate is not None and rstate != "running":
         floor = max(floor, SERVICE_SEVERITY_FLOOR)
     if not floor:
         return decision, False
@@ -422,6 +448,8 @@ def main():
     p.add_argument("--dbname", default=cfg.get("POSTGRES_DB"))
     p.add_argument("--window", type=int, default=30,
                    help="seconds between the two cgroup reads")
+    p.add_argument("--cache", default="opsmind-redis",
+                   help="container name of the cache the web app also depends on")
     p.add_argument("--app", default="opsmind-app",
                    help="container name of the web app that depends on the database")
     p.add_argument("--app-port", type=int, default=int(cfg.get("APP_HOST_PORT", 5050)))
@@ -434,7 +462,7 @@ def main():
           file=sys.stderr)
     signal = collect_signal(args.container, args.host, args.port, args.user,
                             args.password, args.dbname, args.window,
-                            app=args.app, app_port=args.app_port)
+                            app=args.app, app_port=args.app_port, cache=args.cache)
     print(json.dumps(classify(signal, args.model), indent=2))
 
 

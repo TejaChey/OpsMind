@@ -5,10 +5,12 @@ okf_version: "0.2"
 # Services
 
 * [Postgres database](services/postgres.md) - The target database container (opsmind-postgres): 256 MB memory, 0.5 CPU, 96 MB data volume.
+* [Redis cache](services/redis.md) - The cache container (opsmind-redis) the web app pings in its /health, added in Phase 1 so one service's symptom can come from another service's failure.
 * [Web app](services/web-app.md) - A small Flask service (opsmind-app) whose /health does a real database round trip; its config is deployed from a file.
 
 # Fault types
 
+* [Cache down (cascading failure)](faults/cache-down.md) - The Redis cache the web app also depends on is not running. The app reports unhealthy while the database is fine: the symptom is in one service, the cause in another, and a second possible cause (the database) has to be ruled out.
 * [Config regression after deploy](faults/config-regression.md) - A bad config deploy broke the web app while the database stayed healthy.
 * [CPU spike](faults/cpu-spike.md) - The database container is pinned at its CPU limit and throttled by the kernel.
 * [Dependency down](faults/dependency-down.md) - A service the web app depends on (the database container) is not running; the app reports unhealthy but is only the symptom.
@@ -18,6 +20,7 @@ okf_version: "0.2"
 
 # Runbooks
 
+* [Runbook: Cache down (cascading failure)](runbooks/cache-down.md) - How OpsMind handles: cache down (cascading failure).
 * [Runbook: Config regression after deploy](runbooks/config-regression.md) - How OpsMind handles: config regression after deploy.
 * [Runbook: CPU spike](runbooks/cpu-spike.md) - How OpsMind handles: cpu spike.
 * [Runbook: Dependency down](runbooks/dependency-down.md) - How OpsMind handles: dependency down.

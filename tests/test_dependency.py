@@ -63,6 +63,50 @@ class MapperPrecedence(unittest.TestCase):
                          Action.UNKNOWN_NEEDS_HUMAN)
 
 
+class CacheMapperAndGuard(unittest.TestCase):
+    def test_cache_wording_maps_to_dependency_not_generic_restart(self):
+        # If these mapped to RESTART_CONTAINER the executor would restart the DATABASE.
+        for t in ("Restart the Redis container", "Start the cache container",
+                  "Restart the redis cache so the application recovers"):
+            self.assertEqual(map_action(t), Action.RESTART_DEPENDENCY, t)
+
+    def test_generic_restart_blocked_when_the_cache_is_the_one_down(self):
+        from action_mapper import guard_restart_target
+        sig = {"container_state": "running", "redis_container_state": "exited"}
+        action, note = guard_restart_target(Action.RESTART_CONTAINER, sig)
+        self.assertEqual(action, Action.UNKNOWN_NEEDS_HUMAN)
+        self.assertTrue(note)
+
+    def test_guard_leaves_everything_else_alone(self):
+        from action_mapper import guard_restart_target
+        up = {"container_state": "running", "redis_container_state": "running"}
+        db_down = {"container_state": "exited", "redis_container_state": "running"}
+        old = {"container_state": "running"}   # records from before the cache existed
+        for sig in (up, db_down, old):
+            self.assertEqual(guard_restart_target(Action.RESTART_CONTAINER, sig),
+                             (Action.RESTART_CONTAINER, None))
+        down = {"container_state": "running", "redis_container_state": "exited"}
+        self.assertEqual(guard_restart_target(Action.RESTART_DEPENDENCY, down)[0],
+                         Action.RESTART_DEPENDENCY)
+
+    def test_cache_prompt_pieces_only_when_cache_facts_present(self):
+        from slow_tier import SYSTEM_PROMPT, build_system_prompt
+        self.assertEqual(build_system_prompt(True, False), SYSTEM_PROMPT)   # unchanged
+        with_cache = build_system_prompt(True, True)
+        self.assertIn("redis_container_state", with_cache)
+        self.assertIn("the database or the cache", with_cache)
+        self.assertNotIn("redis_container_state", build_system_prompt(False, False))
+
+    def test_executor_starts_only_the_stopped_cache(self):
+        db, cache = FakeContainer("running"), FakeContainer("exited")
+        with mock.patch.dict(sys.modules, {"docker": fake_docker({"pg": db, "redis": cache})}):
+            status, _, ev = executor.restart_dependency(["pg", "redis"], dry_run=False)
+        self.assertEqual(status, "executed")
+        self.assertFalse(db.restarted)      # the healthy database is never touched
+        self.assertTrue(cache.restarted)
+        self.assertEqual(ev["targets"], ["redis"])
+
+
 class RestartDependencyGuard(unittest.TestCase):
     def run_exec(self, containers, dry_run):
         with mock.patch.dict(sys.modules, {"docker": fake_docker(containers)}):
@@ -107,8 +151,19 @@ class AppVerification(unittest.TestCase):
         with mock.patch.object(hc.urllib.request, "urlopen", return_value=resp):
             return hc._check_app(5050)
 
-    def test_200_with_db_ok_passes(self):
-        self.assertTrue(self.check(200, '{"db_ok": true, "status": "healthy"}')[0])
+    def test_200_with_both_dependencies_ok_passes(self):
+        self.assertTrue(self.check(200, '{"db_ok": true, "redis_ok": true}')[0])
+
+    def test_200_with_only_db_ok_fails_closed(self):
+        # a response that does not vouch for the cache is not proof the cache is back
+        self.assertFalse(self.check(200, '{"db_ok": true, "status": "healthy"}')[0])
+
+    def test_redis_not_ok_fails_even_if_db_ok(self):
+        self.assertFalse(self.check(200, '{"db_ok": true, "redis_ok": false}')[0])
+        self.assertFalse(self.check(503, '{"db_ok": true, "redis_ok": false}')[0])
+
+    def test_db_not_ok_fails_even_if_redis_ok(self):
+        self.assertFalse(self.check(200, '{"db_ok": false, "redis_ok": true}')[0])
 
     def test_200_without_db_ok_fails(self):
         self.assertFalse(self.check(200, '{"status": "healthy"}')[0])

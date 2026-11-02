@@ -1,5 +1,8 @@
 # Knowledge Update Log
 
+## 2026-11-02
+* **Update**: Recorded verified run 679e1231 in [Cache down (cascading failure)](/faults/cache-down.md) (RESTART_DEPENDENCY).
+
 ## 2026-10-14
 * **Update**: Recorded verified run 90383827 in [Config regression after deploy](/faults/config-regression.md) (ROLLBACK_CONFIG).
 * **Update**: Recorded verified run a530b6a9 in [Config regression after deploy](/faults/config-regression.md) (ROLLBACK_CONFIG).

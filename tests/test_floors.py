@@ -112,6 +112,15 @@ class FloorForcesEscalation(unittest.TestCase):
         self.assertNotForced(sig(container_state="running"))
         self.assertNotForced(sig(container_state=None))
 
+    # ---- Phase 1: the cache (Redis) the app also depends on ----
+    def test_cache_not_running_forces(self):
+        for state in ("exited", "restarting", "paused", "dead"):
+            self.assertForced(sig(redis_container_state=state, container_state="running"))
+
+    def test_cache_running_or_unknown_does_not_force(self):
+        self.assertNotForced(sig(redis_container_state="running"))
+        self.assertNotForced(sig(redis_container_state=None))
+
     def test_unmeasured_oom_is_not_zero_and_does_not_crash(self):
         self.assertNotForced(sig(oom_kill_delta=None))
         self.assertForced({"window_seconds": 0, "container_state": "exited"})

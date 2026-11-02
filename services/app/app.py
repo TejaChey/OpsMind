@@ -1,10 +1,11 @@
-"""Tiny web service that depends on Postgres. Its /health does a REAL database round trip, so
+"""Tiny web service that depends on Postgres and Redis. Its /health does a REAL database round trip, so
 when Postgres is unreachable this app reports 503 even though the app process itself is fine.
 That is the point of the dependency-down fault: the symptom is here, the cause is elsewhere."""
 import json
 import os
 
 import psycopg2
+import redis
 from flask import Flask, jsonify
 
 app = Flask(__name__)
@@ -33,8 +34,8 @@ def db_connect():
                             connect_timeout=cfg["connect_timeout_seconds"])
 
 
-@app.get("/health")
-def health():
+def check_db():
+    """(ok, error). A real connect + SELECT 1."""
     try:
         conn = db_connect()
         try:
@@ -43,10 +44,31 @@ def health():
                 cur.fetchone()
         finally:
             conn.close()
+        return True, None
     except (psycopg2.Error, ValueError, KeyError, TypeError) as e:   # DB or bad config
-        return jsonify(status="unhealthy", db_ok=False,
-                       error=str(e).strip().splitlines()[0]), 503
-    return jsonify(status="healthy", db_ok=True), 200
+        return False, str(e).strip().splitlines()[0]
+
+
+def check_redis():
+    """(ok, error). A real PING to the cache."""
+    try:
+        redis.Redis(host=os.environ["REDIS_HOST"], socket_connect_timeout=2,
+                    socket_timeout=2).ping()
+        return True, None
+    except (redis.RedisError, OSError, KeyError) as e:
+        return False, f"redis: {str(e).strip().splitlines()[0]}"
+
+
+@app.get("/health")
+def health():
+    """Healthy only if BOTH dependencies answer. Each is reported separately so a reader can
+    tell which one is the cause (the app itself is fine in either case)."""
+    db_ok, db_err = check_db()
+    redis_ok, redis_err = check_redis()
+    if db_ok and redis_ok:
+        return jsonify(status="healthy", db_ok=True, redis_ok=True), 200
+    return jsonify(status="unhealthy", db_ok=db_ok, redis_ok=redis_ok,
+                   error=db_err or redis_err), 503
 
 
 if __name__ == "__main__":

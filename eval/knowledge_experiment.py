@@ -88,7 +88,7 @@ def plan(rec):
     ctx = lambda **kw: knowledge.context_for(rec["signal"], exclude_run_id=rec["run_id"], **kw)
     out = [("control_full", {}), ("know_full", {"knowledge": ctx()})]
     if fault in MENU_PHRASE:
-        p = ablated_prompt(fault, slow_tier.build_system_prompt("last_deploy" in rec["signal"]))
+        p = ablated_prompt(fault, slow_tier.build_system_prompt("last_deploy" in rec["signal"], "redis_container_state" in rec["signal"]))
         out += [("control_ablated", {"system_prompt": p}),
                 ("know_ablated", {"system_prompt": p, "knowledge": ctx()})]
     if fault in MISLEADING:

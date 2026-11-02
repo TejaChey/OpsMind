@@ -45,7 +45,7 @@ RULES = {
     ],
     Action.RESTART_DEPENDENCY: [   # more specific than RESTART_CONTAINER (see map_action)
         r"\b(start|restart|reboot|bounce|bring (up|back)|recover|revive)\b.{0,40}"
-        r"\b(database|postgres(ql)?|db|dependency|backend)\b",
+        r"\b(database|postgres(ql)?|db|dependency|backend|redis|cache|caching)\b",
     ],
     Action.TERMINATE_QUERY: [
         r"\b(kill|terminate|cancel|abort|stop|end)\b.{0,40}\b(quer(y|ies)|backends?|sessions?|statements?)\b",
@@ -76,7 +76,8 @@ RULES = {
 # Restart actions always act on the monitored database container (chosen in code). If the text
 # names the web app as the thing to restart, the words and the target disagree -> a human decides.
 APP_RESTART = re.compile(
-    r"\b(restart|reboot|bounce|start|bring (up|back))\b.{0,25}"
+    r"\b(restart|reboot|bounce|start|bring (up|back))\b"
+    r"(?:(?!\b(so|because|until|which|then|while)\b).){0,25}"   # do not read across a clause
     r"\b(app|apps|application|web ?app|web ?server|frontend|api)\b")
 RESTART_ACTIONS = (Action.RESTART_CONTAINER, Action.RESTART_DEPENDENCY)
 
@@ -98,6 +99,21 @@ def map_action(proposed_fix):
             return Action.UNKNOWN_NEEDS_HUMAN
         return matched[0]
     return Action.UNKNOWN_NEEDS_HUMAN  # none matched, or conflicting (e.g. "increase memory and restart")
+
+
+def guard_restart_target(action, signal):
+    """Restart actions act on the monitored database container, chosen in code. If the signal
+    shows the database is running and a DIFFERENT dependency (the cache) is the one that is
+    down, a generic RESTART_CONTAINER would restart the healthy database and leave the real
+    fault alone: the words and the target disagree, so a human decides. The specific
+    RESTART_DEPENDENCY is not affected: it only ever starts containers that are not running.
+    Returns (action, note or None)."""
+    if (action == Action.RESTART_CONTAINER
+            and signal.get("container_state") == "running"
+            and signal.get("redis_container_state") not in (None, "running")):
+        return (Action.UNKNOWN_NEEDS_HUMAN,
+                "generic restart blocked: the database is running, the cache is the one down")
+    return action, None
 
 
 if __name__ == "__main__":

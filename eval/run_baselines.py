@@ -88,7 +88,7 @@ def fixed_rules(s):
 def single_7b(signal, model):
     """Baseline (a): one model call does everything. Returns (decision dict, usage, seconds)."""
     sig = {k: signal[k] for k in FACT_KEYS if k in signal}
-    prompt = slow_tier.build_system_prompt("last_deploy" in signal) + SINGLE_NOTE
+    prompt = slow_tier.build_system_prompt("last_deploy" in signal, "redis_container_state" in signal) + SINGLE_NOTE
     fast_tier.take_usage()
     t = time.perf_counter()
     for _ in range(2):

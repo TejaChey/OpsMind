@@ -40,7 +40,8 @@ def container_status(name):
 def app_ok(app_port):
     try:
         with urllib.request.urlopen(f"http://localhost:{app_port}/health", timeout=5) as r:
-            return r.status == 200 and json.loads(r.read().decode()).get("db_ok") is True
+            body = json.loads(r.read().decode())
+            return r.status == 200 and body.get("db_ok") is True and body.get("redis_ok") is True
     except (urllib.error.URLError, OSError, ValueError):
         return False
 

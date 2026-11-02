@@ -108,13 +108,16 @@ def _check_app(app_port):
     except (urllib.error.URLError, OSError) as e:
         return False, {"app_health_status_after": None}, f"app unreachable: {e}"
     try:
-        db_ok = json.loads(body).get("db_ok")
-    except ValueError:
-        db_ok = None
-    fields = {"app_health_status_after": status, "app_db_ok_after": db_ok}
-    if status == 200 and db_ok is True:
-        return True, fields, "app /health is 200 with db_ok true"
-    return False, fields, f"app /health is {status} (db_ok={db_ok})"
+        parsed = json.loads(body)
+        db_ok, redis_ok = parsed.get("db_ok"), parsed.get("redis_ok")
+    except (ValueError, AttributeError):
+        db_ok = redis_ok = None
+    fields = {"app_health_status_after": status, "app_db_ok_after": db_ok,
+              "app_redis_ok_after": redis_ok}
+    # Both dependencies must be reported OK by the app itself; a missing flag fails closed.
+    if status == 200 and db_ok is True and redis_ok is True:
+        return True, fields, "app /health is 200 with db_ok and redis_ok true"
+    return False, fields, f"app /health is {status} (db_ok={db_ok}, redis_ok={redis_ok})"
 
 
 def _config_matches_known_good():

@@ -78,7 +78,7 @@ def attach_deploy_facts(signal):
 
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
              container="opsmind-postgres", dry_run=True, db=None, app_port=None,
-             knowledge_context=None):
+             knowledge_context=None, dependencies=None):
     fast_tier.take_usage()   # reset the token counters
     t = time.perf_counter()
     result = fast_tier.classify(signal, model)
@@ -103,11 +103,13 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         d = slow["diagnosis"]
         print(f"escalated to slow tier ({slow['source']}): {d['root_cause']}")
         print(f"proposed fix (not executed): {d['proposed_fix']} (confidence {d['confidence']})")
-        mapped_action = action_mapper.map_action(d["proposed_fix"]).value
-        print(f"mapped action: {mapped_action}")
+        mapped, guard_note = action_mapper.guard_restart_target(
+            action_mapper.map_action(d["proposed_fix"]), result["signal"])
+        mapped_action = mapped.value
+        print(f"mapped action: {mapped_action}" + (f" ({guard_note})" if guard_note else ""))
         t = time.perf_counter()
         execution = executor.execute(mapped_action, d["confidence"], container, dry_run, db=db,
-                                     dependencies=[container], app_port=app_port)
+                                     dependencies=dependencies or [container], app_port=app_port)
         timings["execute_seconds"] = round(time.perf_counter() - t, 3)
         if execution["status"] == "would_execute":
             print(f"would execute {mapped_action} on {container} (dry run, nothing changed)"
@@ -160,6 +162,8 @@ def main():
     p.add_argument("--dbname", default=cfg.get("POSTGRES_DB"))
     p.add_argument("--window", type=int, default=30,
                    help="seconds between the two cgroup reads")
+    p.add_argument("--cache", default="opsmind-redis",
+                   help="container name of the cache the web app also depends on")
     p.add_argument("--app", default="opsmind-app",
                    help="container name of the web app that depends on the database")
     p.add_argument("--app-port", type=int, default=int(cfg.get("APP_HOST_PORT", 5050)))
@@ -178,7 +182,8 @@ def main():
           file=sys.stderr)
     signal = fast_tier.collect_signal(args.container, args.host, args.port, args.user,
                                       args.password, args.dbname, args.window,
-                                      app=args.app, app_port=args.app_port)
+                                      app=args.app, app_port=args.app_port,
+                                      cache=args.cache)
     db = dict(host=args.host, port=args.port, user=args.user, password=args.password,
               dbname=args.dbname)
     attach_running_query(signal, db)
@@ -188,7 +193,9 @@ def main():
     kctx = None if args.no_knowledge else knowledge.context_for(signal)
     record = run_once(signal, args.model, args.slow_model, args.container,
                       dry_run=not args.live, db=db, app_port=args.app_port,
-                      knowledge_context=kctx)
+                      knowledge_context=kctx,
+                      dependencies=[c for c in (args.container, args.cache)
+                                    if fast_tier.container_state(c)])
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
     # Deliberately here and NOT inside run_once(): the test harness calls run_once() with
     # forced inputs and only labels the record HARNESS_TEST afterwards, so a hook inside
