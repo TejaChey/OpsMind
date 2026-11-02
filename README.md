@@ -193,3 +193,6 @@ Run the full evaluation (about 35 minutes, needs Ollama and Docker, injects real
 ```bash
 python eval/run_eval.py && python eval/run_baselines.py && python eval/summarize_eval.py && python eval/summarize_eval.py --compare && python eval/make_charts.py
 ```
+
+## Production readiness
+Would a company use this? See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md): what the design already matches in industry guidance, the cross-incident safety limits added after reading outage postmortems (repeat/failed-fix governor, kill switch `touch OPSMIND_PAUSED`, evidence snapshot, human hand-off queue), and what is still missing before real use.

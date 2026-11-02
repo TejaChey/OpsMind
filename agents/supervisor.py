@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `tools` is
 import action_mapper
 import fast_tier
 import slow_tier
-from tools import deploy, executor, knowledge
+from tools import deploy, escalation, executor, forensics, governor, knowledge
 from tools.jsonl_io import append_jsonl
 from verify import health_check
 
@@ -78,7 +78,11 @@ def attach_deploy_facts(signal):
 
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
              container="opsmind-postgres", dry_run=True, db=None, app_port=None,
-             knowledge_context=None, dependencies=None):
+             knowledge_context=None, dependencies=None, governor_check=None):
+    """governor_check: None (the eval harness and tests: each trial stands alone) or a function
+    (action, targets) -> (allowed, reason, evidence), e.g. tools.governor.check, consulted only
+    when an action would really execute. A live action it allows first gets an evidence
+    snapshot (tools/forensics.py)."""
     fast_tier.take_usage()   # reset the token counters
     t = time.perf_counter()
     result = fast_tier.classify(signal, model)
@@ -89,6 +93,8 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
     mapped_action = None
     execution = None
     verification = None
+    gov = None
+    snapshot = None
 
     # ---- BRANCH POINT: everything below the fast tier decides what happens next ----
     if not decision["escalate"]:
@@ -108,12 +114,30 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         mapped_action = mapped.value
         print(f"mapped action: {mapped_action}" + (f" ({guard_note})" if guard_note else ""))
         t = time.perf_counter()
-        execution = executor.execute(mapped_action, d["confidence"], container, dry_run, db=db,
-                                     dependencies=dependencies or [container], app_port=app_port)
+        ex_args = dict(db=db, dependencies=dependencies or [container], app_port=app_port)
+        execution = None
+        if governor_check is not None and not dry_run:
+            # Plan first (a dry run picks the real target in code and changes nothing), so the
+            # governor judges exactly what would be touched.
+            plan = executor.execute(mapped_action, d["confidence"], container, True, **ex_args)
+            if plan["status"] == "would_execute":
+                targets = plan.get("targets") or [container]
+                ok, why, evidence = governor_check(mapped_action, targets)
+                gov = {"allowed": ok, "reason": why, "targets": sorted(targets), **evidence}
+                if ok:
+                    snapshot = forensics.snapshot(set(targets) | {container})
+                else:
+                    execution = {**plan, "dry_run": False, "status": "blocked_by_governor",
+                                 "reason": why}
+        if execution is None:
+            execution = executor.execute(mapped_action, d["confidence"], container, dry_run,
+                                         **ex_args)
         timings["execute_seconds"] = round(time.perf_counter() - t, 3)
         if execution["status"] == "would_execute":
             print(f"would execute {mapped_action} on {container} (dry run, nothing changed)"
                   f" - {execution['reason']}")
+        elif execution["status"] == "blocked_by_governor":
+            print(f"blocked by governor: {execution['reason']}")
         elif execution["status"] == "blocked_pending_human_approval":
             print(f"blocked pending human approval: {execution['reason']}")
         else:
@@ -142,6 +166,8 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         "slow_tier": slow,
         "knowledge_context": knowledge_context,   # exactly what the slow tier was shown (or None)
         "mapped_action": mapped_action,
+        "governor": gov,               # cross-incident limits (None = not consulted)
+        "pre_action_snapshot": snapshot,   # container state + log tail just before a live action
         "execution": execution,
         "verification": verification,
         "timings": timings,    # per-stage wall-clock seconds
@@ -171,6 +197,8 @@ def main():
                    help="do not show the slow tier past verified incidents (default: show them)")
     p.add_argument("--model", default=fast_tier.DEFAULT_MODEL)
     p.add_argument("--slow-model", default=slow_tier.DEFAULT_MODEL)
+    p.add_argument("--no-governor", action="store_true",
+                   help="skip the cross-incident limits in tools/governor.py (default: on for --live)")
     p.add_argument("--live", action="store_true",
                    help="actually execute policy-approved actions (default: dry run)")
     args = p.parse_args()
@@ -195,8 +223,17 @@ def main():
                       dry_run=not args.live, db=db, app_port=args.app_port,
                       knowledge_context=kctx,
                       dependencies=[c for c in (args.container, args.cache)
-                                    if fast_tier.container_state(c)])
+                                    if fast_tier.container_state(c)],
+                      governor_check=None if args.no_governor else governor.check)
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
+    # A run a person must act on goes to the hand-off queue (main only, like the knowledge hook).
+    try:
+        entry = escalation.escalate(record)
+        if entry:
+            print(f"escalated to a human: {entry['reason']} -> {escalation.QUEUE_FILE}",
+                  file=sys.stderr)
+    except Exception as e:  # the hand-off must never break the incident run
+        print(f"escalation: queue write failed ({type(e).__name__}: {e})", file=sys.stderr)
     # Deliberately here and NOT inside run_once(): the test harness calls run_once() with
     # forced inputs and only labels the record HARNESS_TEST afterwards, so a hook inside
     # run_once() would write forced tests into the knowledge base as if they were real.

@@ -49,3 +49,11 @@ actions:
   FIX_DEPENDENCY:          # changes the runner's environment: a human decides
     auto_approve: false
     min_confidence: 1.0
+
+# Limits ACROSS incidents (tools/governor.py), checked only when an action would really run.
+# Kill switch: `touch OPSMIND_PAUSED` in the repo root (or automation_enabled: false) stops
+# every live action; incidents are still triaged and handed to a human.
+governor:
+  automation_enabled: true
+  window_minutes: 30
+  max_executions_per_target: 2   # a 3rd identical fix within the window goes to a human
