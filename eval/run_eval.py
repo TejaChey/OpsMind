@@ -38,7 +38,7 @@ from verify import health_check
 
 PY = sys.executable
 OUT = ROOT / "eval" / "results" / "eval_runs.jsonl"
-CONTAINER, APP = "opsmind-postgres", "opsmind-app"
+CONTAINER, APP, CACHE = "opsmind-postgres", "opsmind-app", "opsmind-redis"
 APPROVED_LIVE = {"RECONNECT_NETWORK", "RESTART_DEPENDENCY", "ROLLBACK_CONFIG"}
 LIVE_FAULTS = ground_truth.AUTO_FIXABLE
 
@@ -46,6 +46,7 @@ LIVE_FAULTS = ground_truth.AUTO_FIXABLE
 # sampling window (OOM kills / CPU load are rates over a window), so start it, then sample.
 PLAN = {
     "network-partition": dict(mode="state", cmd=["faults/network_partition.py", "--hold"], window=5),
+    "cache-down": dict(mode="state", cmd=["faults/dependency_down.py", "--dependency", CACHE, "--hold"], window=5),
     "dependency-down": dict(mode="state", cmd=["faults/dependency_down.py", "--hold"], window=5),
     "config-regression": dict(mode="state", cmd=["faults/config_regression.py", "--hold"], window=5),
     "disk-full": dict(mode="state", cmd=["faults/disk_full.py", "--hold"], window=5),
@@ -54,6 +55,7 @@ PLAN = {
                       window=18, pre_sleep=3),
 }
 CLEAR = [["faults/network_partition.py", "--clear"], ["faults/dependency_down.py", "--clear"],
+         ["faults/dependency_down.py", "--dependency", CACHE, "--clear"],
          ["faults/config_regression.py", "--clear"], ["faults/disk_full.py", "--clear"]]
 EFFECT = "FAULT TOOK EFFECT"
 
@@ -89,6 +91,7 @@ def restore_baseline(cfg, app_port, db):
     while time.monotonic() < deadline:
         healthy = (ground_truth.container_status(CONTAINER) == "running"
                    and ground_truth.container_status(APP) == "running"
+                   and ground_truth.container_status(CACHE) == "running"
                    and ground_truth.db_direct_ok(db))
         if healthy:
             break
@@ -114,7 +117,7 @@ def inject_and_sample(fault, cfg, db, app_port, trial):
         rc, out = sh(cmd)
         t_ready = time.time()
         before = ground_truth.fault_present(fault, CONTAINER, db, app_port)
-        sig = fast_tier.collect_signal(*args, plan["window"], app=APP, app_port=app_port)
+        sig = fast_tier.collect_signal(*args, plan["window"], app=APP, app_port=app_port, cache=CACHE)
         t_sampled = time.time()
         after = ground_truth.fault_present(fault, CONTAINER, db, app_port)
         return sig, dict(effect=EFFECT in out, t_ready=t_ready, t_sampled=t_sampled,
@@ -123,7 +126,7 @@ def inject_and_sample(fault, cfg, db, app_port, trial):
                             text=True)
     t_start = time.time()
     time.sleep(plan["pre_sleep"])
-    sig = fast_tier.collect_signal(*args, plan["window"], app=APP, app_port=app_port)
+    sig = fast_tier.collect_signal(*args, plan["window"], app=APP, app_port=app_port, cache=CACHE)
     t_sampled = time.time()
     out = proc.communicate(timeout=300)[0]
     return sig, dict(effect=EFFECT in out, t_ready=t_start, t_sampled=t_sampled,
@@ -163,7 +166,7 @@ def run_trial(kind, fault, trial, cfg, db, app_port):
     try:
         if kind == "control":
             sig = fast_tier.collect_signal(CONTAINER, db["host"], db["port"], db["user"],
-                                           db["password"], db["dbname"], 5, app=APP, app_port=app_port)
+                                           db["password"], db["dbname"], 5, app=APP, app_port=app_port, cache=CACHE)
             meta = None
         else:
             sig, meta = inject_and_sample(fault, cfg, db, app_port, trial)
@@ -174,7 +177,8 @@ def run_trial(kind, fault, trial, cfg, db, app_port):
         supervisor.write_trajectory = lambda rec, path=None: real_write(rec, OUT.with_name("eval_trajectories.jsonl"))
         try:
             rec = supervisor.run_once(sig, container=CONTAINER, dry_run=not live, db=db,
-                                      app_port=app_port, knowledge_context=kctx)
+                                      app_port=app_port, knowledge_context=kctx,
+                                      dependencies=[CONTAINER, CACHE])
         finally:
             supervisor.write_trajectory = real_write
         t_done = time.time()

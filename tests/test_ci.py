@@ -189,5 +189,28 @@ class Verification(unittest.TestCase):
             self.assertFalse(ci_actions.verify("REVERT_COMMIT", None)["verified"])
 
 
+class RegressionGateLogic(unittest.TestCase):
+    """The gate's scoring and threshold check (pure code; the replay itself needs Ollama)."""
+    def test_score_strict_and_alternative(self):
+        from ci import ci_regression as rg
+        self.assertEqual(rg.score("test-regression", "REVERT_COMMIT"), (True, True))
+        self.assertEqual(rg.score("test-regression", "FIX_CODE"), (False, True))      # alt only
+        self.assertEqual(rg.score("flaky-network", "FIX_CODE"), (False, False))
+        self.assertEqual(rg.score("missing-dependency", "RERUN_PIPELINE"), (False, False))  # the trap
+
+    def test_check_bites_below_threshold_and_on_fallback(self):
+        from ci import ci_regression as rg
+        c = {"flaky-network": {"correct": 4, "correct_incl_alt": 4, "n": 5, "fallback": 0, "wrong": []}}
+        self.assertTrue(rg.check(c, {"flaky-network": 1.0}))
+        self.assertFalse(rg.check(c, {"flaky-network": 0.8}))
+        c["flaky-network"].update(correct=5, correct_incl_alt=5, fallback=1)
+        self.assertTrue(rg.check(c, {"flaky-network": 1.0}))   # a fallback is never a pass
+
+    def test_incidents_load_from_the_stored_trials(self):
+        from ci import ci_regression as rg
+        inc = rg.load_incidents()
+        self.assertTrue(inc and all(f in rg.gt.GROUND_TRUTH for f, _ in inc))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,6 @@
+{
+  "flaky-network": 1.0,
+  "missing-dependency": 1.0,
+  "test-regression": 0.0,
+  "alt:test-regression": 1.0
+}

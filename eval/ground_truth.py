@@ -23,7 +23,8 @@ sys.path.insert(0, str(ROOT))
 
 from tools import deploy
 
-AUTO_FIXABLE = {"network-partition", "dependency-down", "config-regression"}
+AUTO_FIXABLE = {"network-partition", "dependency-down", "config-regression", "cache-down"}
+CACHE_CONTAINER = "opsmind-redis"
 SERVICE_NETWORK = "services_default"
 
 
@@ -69,6 +70,9 @@ def _check(fault, container, db, app_port):
     if fault == "dependency-down":
         st = container_status(container)
         return st == "running" and app_ok(app_port), f"container={st}"
+    if fault == "cache-down":
+        st = container_status(CACHE_CONTAINER)
+        return st == "running" and app_ok(app_port), f"cache_container={st}"
     if fault == "config-regression":
         live = deploy.read_live()
         same = live == deploy.GOOD_DEFAULT
@@ -95,6 +99,8 @@ def fault_present(fault, container, db, app_port):
         return bool(info) and not info[0]["NetworkSettings"]["Networks"]
     if fault == "dependency-down":
         return container_status(container) not in (None, "running")
+    if fault == "cache-down":
+        return container_status(CACHE_CONTAINER) not in (None, "running")
     if fault == "config-regression":
         return deploy.read_live() != deploy.GOOD_DEFAULT and not app_ok(app_port)
     if fault == "disk-full":

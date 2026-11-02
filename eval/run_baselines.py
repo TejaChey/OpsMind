@@ -60,7 +60,8 @@ FACT_KEYS = ("oom_kill_delta", "window_seconds", "db_connect_ok", "db_connect_er
              "cpu_limit_cores", "cpu_share_of_limit", "cpu_throttled_periods", "running_query",
              "data_disk_percent_used", "write_failed", "write_error", "db_connect_seconds",
              "pg_ready_inside", "container_state", "app_health_status", "app_container_state",
-             "app_health_error", "last_deploy")
+             "app_health_error", "redis_container_state", "app_db_ok", "app_redis_ok",
+             "last_deploy")
 
 
 def fixed_rules(s):
@@ -72,6 +73,8 @@ def fixed_rules(s):
     app = get("app_health_status")
     if get("container_state") not in (None, "running"):
         return True, "RESTART_DEPENDENCY"            # database container is down: start it
+    if get("redis_container_state") not in (None, "running"):
+        return True, "RESTART_DEPENDENCY"            # cache container is down: start it (rule added with Redis)
     if (get("oom_kill_delta") or 0) > 0:
         return True, "RESTART_CONTAINER"             # OOM kill: restart
     if get("write_failed") is True or (get("data_disk_percent_used") or 0) >= 0.95:

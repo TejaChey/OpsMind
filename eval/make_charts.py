@@ -27,7 +27,7 @@ NAMES = {"full": "OpsMind (full, live)", "single_7b": "Single always-on 7b", "fi
          "health_only_verification": "Health-only verification"}
 FAULT_NAMES = {"oom": "OOM", "cpu-spike": "CPU spike", "disk-full": "Disk full",
                "network-partition": "Network partition", "dependency-down": "Dependency down",
-               "config-regression": "Config regression"}
+               "config-regression": "Config regression", "cache-down": "Cache down"}
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 10, "text.color": INK, "axes.labelcolor": INK2,
                      "xtick.color": INK2, "ytick.color": INK2, "axes.edgecolor": GRID,
                      "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE})
@@ -161,7 +161,7 @@ def fig_latency():
     a1.set_yticklabels([FAULT_NAMES[f] for f in faults])
     a1.set_xlim(0, 52)
     a1.set_title("Median time to detect", fontsize=10, loc="left")
-    fixable = [f for f in ("dependency-down", "config-regression", "network-partition")]
+    fixable = [f for f in ("dependency-down", "cache-down", "config-regression", "network-partition")]
     for i, f in enumerate(fixable):
         v = by[f]["median_ttr_s"]
         a2.barh(i, v, height=0.5, color=BLUE)
