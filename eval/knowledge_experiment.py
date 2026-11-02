@@ -50,6 +50,7 @@ GROUND_TRUTH = {   # known correct remediation per fault (CLAUDE.md "Evaluation 
     "disk-full": {"INCREASE_DISK", "FREE_DISK_SPACE", "UNKNOWN_NEEDS_HUMAN"},
     "network-partition": {"RECONNECT_NETWORK"},
     "dependency-down": {"RESTART_DEPENDENCY"},
+    "cache-down": {"RESTART_DEPENDENCY"},   # Phase 1: Redis stopped; the DB must NOT be restarted
     "config-regression": {"ROLLBACK_CONFIG"},
 }
 # SECONDARY scoring only (added 2026-10-15, AFTER seeing the CPU results; always reported next to the

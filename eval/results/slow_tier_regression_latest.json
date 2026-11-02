@@ -1,5 +1,5 @@
 {
-  "git_commit": "893d774",
+  "git_commit": "c7bf7f4+uncommitted",
   "model": "qwen2.5:7b",
   "knowledge": "on",
   "prompt_sha256_full": "a4459ce3b12c",
@@ -37,6 +37,13 @@
       "correct": 25,
       "correct_incl_alt": 25,
       "n": 25,
+      "fallback": 0,
+      "wrong": []
+    },
+    "cache-down": {
+      "correct": 2,
+      "correct_incl_alt": 2,
+      "n": 2,
       "fallback": 0,
       "wrong": []
     },
