@@ -35,3 +35,17 @@ actions:
   UNKNOWN_NEEDS_HUMAN:
     auto_approve: false
     min_confidence: 1.0
+
+  # ---- CI domain (Phase 2) ----
+  RERUN_PIPELINE:          # reversible and cheap; code refuses it unless the failure looks transient
+    auto_approve: true
+    min_confidence: 0.7
+  REVERT_COMMIT:           # reversible (a revert commit); target = HEAD, only if it is the single
+    auto_approve: true     # commit after the last green one (chosen in code)
+    min_confidence: 0.8
+  FIX_CODE:                # needs a human to write the change
+    auto_approve: false
+    min_confidence: 1.0
+  FIX_DEPENDENCY:          # changes the runner's environment: a human decides
+    auto_approve: false
+    min_confidence: 1.0
