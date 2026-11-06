@@ -28,6 +28,10 @@ DEPLOYS_DIR = ROOT / "deploys"
 HISTORY_FILE = DEPLOYS_DIR / "history.jsonl"
 LIVE_FILE = DEPLOYS_DIR / "live" / "app.json"
 GOOD_DEFAULT = {"db_host": "postgres", "db_port": 5432, "connect_timeout_seconds": 2}
+# Present only while a deploy's health is still being decided (between writing the new config
+# and recording good/bad). tools/governor.py refuses automatic actions while it exists, so a fix
+# never races a deploy. Removed in a finally block; a leftover one is reported, never ignored.
+IN_PROGRESS_FILE = DEPLOYS_DIR / "IN_PROGRESS"
 
 
 def app_is_healthy(app_port, timeout=5):
@@ -113,8 +117,15 @@ def deploy(config, label, app_port, kind="deploy", restores=None, settle=15,
            history_path=HISTORY_FILE, live_path=LIVE_FILE):
     """Write `config` as the live config, check the app for real, and record the entry."""
     history = read_history(history_path)
-    write_live(config, live_path)
-    ok, detail = wait_healthy(app_port, settle)
+    lock = Path(live_path).parent.parent / IN_PROGRESS_FILE.name
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text(json.dumps({"label": label, "kind": kind, "started": _now().isoformat()}),
+                    encoding="utf-8")
+    try:
+        write_live(config, live_path)
+        ok, detail = wait_healthy(app_port, settle)
+    finally:
+        lock.unlink(missing_ok=True)
     entry = {"deploy_id": uuid.uuid4().hex[:8], "timestamp": _now().isoformat(), "kind": kind,
              "label": label, "config": config,
              "previous_id": history[-1]["deploy_id"] if history else None,

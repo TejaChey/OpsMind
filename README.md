@@ -195,4 +195,4 @@ python eval/run_eval.py && python eval/run_baselines.py && python eval/summarize
 ```
 
 ## Production readiness
-Would a company use this? See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md): what the design already matches in industry guidance, the cross-incident safety limits added after reading outage postmortems (repeat/failed-fix governor, kill switch `touch OPSMIND_PAUSED`, evidence snapshot, human hand-off queue), and what is still missing before real use.
+OpsMind can run behind standard monitoring: `docker compose -f services/docker-compose.yml --profile monitoring up -d` starts Prometheus and Alertmanager, and `python tools/alert_receiver.py --live` receives their alerts (results: [eval/results/alert_loop_NOTES.md](eval/results/alert_loop_NOTES.md)). Would a company use this? See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md): what the design already matches in industry guidance, the cross-incident safety limits added after reading outage postmortems (repeat/failed-fix governor, kill switch `touch OPSMIND_PAUSED`, evidence snapshot, human hand-off queue), and what is still missing before real use.

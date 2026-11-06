@@ -1,0 +1,19 @@
+groups:
+  - name: opsmind
+    rules:
+      - alert: OpsMindAppUnhealthy
+        expr: opsmind_app_healthy == 0
+        for: 10s
+        labels:
+          severity: page
+          service: opsmind-app
+        annotations:
+          summary: "Web app reports a dependency failure"
+      - alert: OpsMindAppDown
+        expr: up{job="opsmind-app"} == 0
+        for: 15s
+        labels:
+          severity: page
+          service: opsmind-app
+        annotations:
+          summary: "Prometheus cannot scrape the web app"

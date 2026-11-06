@@ -71,5 +71,21 @@ def health():
                    error=db_err or redis_err), 503
 
 
+@app.get("/metrics")
+def metrics():
+    """Prometheus text format, written by hand (no client library): the same real checks as
+    /health, as 0/1 gauges, so standard monitoring can alert on this app the way a company's
+    would. Prometheus's own `up` metric covers the app process itself being down."""
+    db_ok, _ = check_db()
+    redis_ok, _ = check_redis()
+    lines = []
+    for name, val, help_ in (
+            ("opsmind_app_db_ok", db_ok, "1 if a real connect + SELECT 1 to Postgres succeeded"),
+            ("opsmind_app_redis_ok", redis_ok, "1 if a real PING to Redis succeeded"),
+            ("opsmind_app_healthy", db_ok and redis_ok, "1 if every dependency answered")):
+        lines += [f"# HELP {name} {help_}", f"# TYPE {name} gauge", f"{name} {int(bool(val))}"]
+    return "\n".join(lines) + "\n", 200, {"Content-Type": "text/plain; version=0.0.4"}
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

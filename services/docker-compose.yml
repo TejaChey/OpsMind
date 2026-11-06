@@ -70,6 +70,34 @@ services:
       retries: 2
       start_period: 5s
 
+  # ---- Standard monitoring (opt-in: `docker compose --profile monitoring up -d`) ----
+  # The way a company would already watch this app. Alertmanager calls OpsMind's alert
+  # receiver on the host (tools/alert_receiver.py, port 9095) with a bearer token from
+  # monitoring/webhook_token (created by `python tools/alert_receiver.py --init-token`).
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: opsmind-prometheus
+    profiles: [monitoring]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - app
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: opsmind-alertmanager
+    profiles: [monitoring]
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./monitoring/webhook_token:/etc/alertmanager/webhook_token:ro
+    ports:
+      - "9093:9093"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux; Docker Desktop resolves it already
+
 volumes:
   pgdata:
     driver: local

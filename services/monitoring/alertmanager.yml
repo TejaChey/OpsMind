@@ -1,0 +1,17 @@
+route:
+  receiver: opsmind
+  group_by: [alertname]
+  group_wait: 5s
+  group_interval: 10s
+  repeat_interval: 2m
+
+receivers:
+  - name: opsmind
+    webhook_configs:
+      - url: http://host.docker.internal:9095/alerts
+        send_resolved: true
+        max_alerts: 20
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /etc/alertmanager/webhook_token

@@ -78,7 +78,7 @@ def attach_deploy_facts(signal):
 
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
              container="opsmind-postgres", dry_run=True, db=None, app_port=None,
-             knowledge_context=None, dependencies=None, governor_check=None):
+             knowledge_context=None, dependencies=None, governor_check=None, trigger=None):
     """governor_check: None (the eval harness and tests: each trial stands alone) or a function
     (action, targets) -> (allowed, reason, evidence), e.g. tools.governor.check, consulted only
     when an action would really execute. A live action it allows first gets an evidence
@@ -155,6 +155,7 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
     record = {
         "run_id": str(uuid.uuid4()),
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "trigger": trigger,   # what started this run (e.g. an Alertmanager alert); None = manual
         "action": action,
         "signal": result["signal"],
         "model": result["model"],
@@ -199,6 +200,9 @@ def main():
     p.add_argument("--slow-model", default=slow_tier.DEFAULT_MODEL)
     p.add_argument("--no-governor", action="store_true",
                    help="skip the cross-incident limits in tools/governor.py (default: on for --live)")
+    p.add_argument("--trigger", default=None,
+                   help="JSON describing what started this run (set by tools/alert_receiver.py); "
+                        "recorded only, never shown to a model")
     p.add_argument("--live", action="store_true",
                    help="actually execute policy-approved actions (default: dry run)")
     args = p.parse_args()
@@ -224,7 +228,8 @@ def main():
                       knowledge_context=kctx,
                       dependencies=[c for c in (args.container, args.cache)
                                     if fast_tier.container_state(c)],
-                      governor_check=None if args.no_governor else governor.check)
+                      governor_check=None if args.no_governor else governor.check,
+                      trigger=json.loads(args.trigger) if args.trigger else None)
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
     # A run a person must act on goes to the hand-off queue (main only, like the knowledge hook).
     try:

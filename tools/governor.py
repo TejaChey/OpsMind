@@ -11,6 +11,8 @@ refuses to act again when:
      `automation_enabled: false`
   2. the same action on the same target FAILED verification within the window (the fix did not
      work last time, so doing it again is guessing)
+  2b. a deploy is in progress (deploys/IN_PROGRESS exists: its health is not decided yet), so
+     acting now would race the deploy (change freeze)
   3. the same action on the same target already ran `max_executions_per_target` times within the
      window, even if each one verified (the fix is not lasting: it treats a symptom, which a
      health check a few seconds later cannot see)
@@ -27,6 +29,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 PAUSE_FILE = ROOT / "OPSMIND_PAUSED"
+DEPLOY_LOCK = ROOT / "deploys" / "IN_PROGRESS"
 HISTORY_FILE = ROOT / "trajectories" / "runs.jsonl"
 POLICY_FILE = ROOT / "policy.yaml"
 DEFAULTS = {"automation_enabled": True, "window_minutes": 30, "max_executions_per_target": 2}
@@ -71,7 +74,8 @@ def recent_live_executions(history, action, now, window_minutes):
     return [r for _, r in sorted(out, key=lambda x: x[0], reverse=True)]
 
 
-def check(action, targets, history=None, now=None, config=None, pause_file=PAUSE_FILE):
+def check(action, targets, history=None, now=None, config=None, pause_file=PAUSE_FILE,
+          deploy_lock=DEPLOY_LOCK):
     """Returns (allowed, reason, evidence). Call it only for an action that would otherwise
     really execute. `targets` = the container name(s) the action would act on now (for
     RESTART_DEPENDENCY: the dependencies that are not running); a past execution counts if it
@@ -88,6 +92,13 @@ def check(action, targets, history=None, now=None, config=None, pause_file=PAUSE
     if config.get("automation_enabled") is not True:
         return False, "automation paused (policy.yaml governor automation_enabled is not true)", \
             {"paused": True}
+    if Path(deploy_lock).exists():
+        try:
+            info = Path(deploy_lock).read_text(encoding="utf-8").strip()
+        except OSError:
+            info = "unreadable"
+        return False, (f"change freeze: a deploy is in progress ({info}); if no deploy is "
+                       f"running, a person must remove {Path(deploy_lock).name}"), {"frozen": True}
     window = config["window_minutes"]
     recent = recent_live_executions(history, action, now, window)
     recent = [r for r in recent if targets_of(r["execution"]) & targets]

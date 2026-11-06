@@ -1,5 +1,9 @@
 # Knowledge Update Log
 
+## 2026-11-06
+* **Update**: Recorded verified run 3440bc20 in [Cache down (cascading failure)](/faults/cache-down.md) (RESTART_DEPENDENCY).
+* **Update**: Recorded verified run 7e268733 in [Cache down (cascading failure)](/faults/cache-down.md) (RESTART_DEPENDENCY).
+
 ## 2026-11-02
 * **Update**: Recorded verified run 679e1231 in [Cache down (cascading failure)](/faults/cache-down.md) (RESTART_DEPENDENCY).
 

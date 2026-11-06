@@ -1,0 +1,22 @@
+# Standard monitoring in front of OpsMind (profile "monitoring" in docker-compose.yml).
+# Prometheus scrapes the app's /metrics (real DB + Redis checks) and fires alerts; Alertmanager
+# forwards them to OpsMind's alert receiver (tools/alert_receiver.py). OpsMind treats an alert
+# only as a TRIGGER and re-measures every fact itself.
+global:
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  evaluation_interval: 5s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: opsmind-app
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["app:5000"]

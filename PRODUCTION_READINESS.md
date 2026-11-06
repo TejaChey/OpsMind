@@ -39,7 +39,18 @@ The governor is planned first and acted second: the executor first runs as a dry
 picks the real target in code), the governor judges exactly that target, and only then does
 the live action run. The eval harness does not use the governor (each trial must stand alone).
 
-**Evidence.** 15 new unit tests. All 4 governor rules were mutation-tested (each deliberately
+**Update 2026-11-06, OpsMind now runs behind standard monitoring.** Prometheus + Alertmanager
+(compose profile `monitoring`) alert on the app's new `/metrics`; Alertmanager calls
+`tools/alert_receiver.py` (authenticated, deduplicated, allow-listed, bounded queue, one
+incident at a time, alert text never shown to a model, every event in
+`trajectories/alerts.jsonl`). The governor also has a **change freeze**: no automatic action
+while a deploy's health is still undecided (`deploys/IN_PROGRESS`, written by `tools/deploy.py`).
+On a real Redis fault repeated 3 times through this loop: fixes 1 and 2 executed, verified and
+resolved the alert with no human; fix 3 was **refused by the repeat limit** and handed to a
+human (`eval/results/alert_loop_NOTES.md`, n=3). The repeat limit and the evidence snapshot are
+now shown live; the failed-fix rule and the freeze are still unit tests only.
+
+**Evidence (2026-11-02).** 15 new unit tests. All 4 governor rules were mutation-tested (each deliberately
 broken rule fails a test). One real run on a real fault: Redis stopped, kill switch on,
 `--live` → diagnosed correctly, governor refused, Redis stayed down, hand-off queued
 (run 324f9bbf). **Not yet shown live:** the repeat limit and the failed-fix rule (unit tests
@@ -47,13 +58,15 @@ only), and the snapshot on a real live action.
 
 ## Still missing before a company would trust it (not built)
 
-1. **Integrations**: real signal sources and a Kubernetes/cloud executor. The architecture
-   (signal dict → tiers → mapped action → executor → verifier) would not change; the adapters
-   would.
+1. **Integrations**: alert ingest from Alertmanager now exists (above), so OpsMind can sit
+   behind a company's existing alerting. Still missing: reading their metrics/logs as signal
+   (OpsMind measures its own facts from Docker) and a Kubernetes/cloud executor. The
+   architecture (signal → tiers → mapped action → governor → executor → verifier) would not
+   change; the adapters would.
 2. **Identity and permissions**: the executor uses the local Docker socket, i.e. full control.
    A real deployment needs a separate, least-privilege identity per action type.
-3. **Change awareness**: don't act during a deploy, migration or maintenance window. Deploy
-   facts are already read; a "freeze" check would sit in the governor.
+3. **Change awareness**: done for deploys made through `tools/deploy.py` (change freeze in the
+   governor). Migrations and maintenance windows from a company's calendar are not read.
 4. **Durability of a fix**: verification runs seconds after the fix. The repeat limit catches a
    fault that comes back, but a scheduled re-check (e.g. 10 min later) would catch it sooner.
 5. **Shadow mode at scale**: companies adopt in steps (read-only, then propose with one-click

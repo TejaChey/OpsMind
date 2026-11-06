@@ -27,7 +27,8 @@ def run(minutes_ago, action="RESTART_CONTAINER", container="opsmind-postgres", v
 
 def check(action, targets, history, **kw):
     return governor.check(action, targets, history=history, now=NOW, config=kw.get("cfg", CFG),
-                          pause_file=kw.get("pause", NO_PAUSE))
+                          pause_file=kw.get("pause", NO_PAUSE),
+                          deploy_lock=kw.get("lock", "/nonexistent/IN_PROGRESS"))
 
 
 class Governor(unittest.TestCase):
@@ -77,10 +78,37 @@ class Governor(unittest.TestCase):
         ok, why, _ = check("RESTART_CONTAINER", ["x"], [], cfg={**CFG, "automation_enabled": False})
         self.assertFalse(ok)
 
+    def test_deploy_in_progress_freezes_automation(self):
+        with tempfile.TemporaryDirectory() as d:
+            lock = Path(d) / "IN_PROGRESS"
+            lock.write_text('{"label": "v2"}')
+            ok, why, ev = check("ROLLBACK_CONFIG", ["opsmind-postgres"], [], lock=lock)
+            self.assertFalse(ok)
+            self.assertIn("change freeze", why)
+            self.assertTrue(ev["frozen"])
+
+    def test_deploy_holds_the_lock_only_while_health_is_undecided(self):
+        from tools import deploy
+        with tempfile.TemporaryDirectory() as d:
+            live, hist = Path(d) / "live" / "app.json", Path(d) / "history.jsonl"
+            lock = Path(d) / "IN_PROGRESS"
+            seen = []
+            def probe(*a, **k):
+                seen.append(lock.exists())
+                return True, "HTTP 200 x3 in a row"
+            with mock.patch.object(deploy, "wait_healthy", side_effect=probe):
+                deploy.deploy({"db_port": 1}, "t", 5050, history_path=hist, live_path=live)
+            self.assertEqual(seen, [True])
+            self.assertFalse(lock.exists())
+            with mock.patch.object(deploy, "wait_healthy", side_effect=RuntimeError("boom")):
+                with self.assertRaises(RuntimeError):
+                    deploy.deploy({"db_port": 1}, "t", 5050, history_path=hist, live_path=live)
+            self.assertFalse(lock.exists())     # removed even when the deploy crashes
+
     def test_unreadable_history_fails_closed(self):
         with mock.patch.object(governor, "load_history", side_effect=ValueError("bad json")):
             ok, why, _ = governor.check("RESTART_CONTAINER", ["x"], now=NOW, config=CFG,
-                                        pause_file=NO_PAUSE)
+                                        pause_file=NO_PAUSE, deploy_lock="/nonexistent/L")
         self.assertFalse(ok)
         self.assertIn("failing closed", why)
 
