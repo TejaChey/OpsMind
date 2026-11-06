@@ -391,6 +391,14 @@ def apply_floor(decision, signal):
     status = signal.get("app_health_status")
     if isinstance(status, int) and not isinstance(status, bool) and status != 200:
         floor = max(floor, SERVICE_SEVERITY_FLOOR)
+    # The app was probed but did not answer at all (timeout / refused): a health check that
+    # hangs IS a failure. Found by the novel-fault test (a paused app slipped through because
+    # None was read as "not measured"). Key absent = no app configured = still not measured.
+    if "app_health_status" in signal and status is None and signal.get("app_health_error"):
+        floor = max(floor, SERVICE_SEVERITY_FLOOR)
+    astate = signal.get("app_container_state")    # paused / exited / restarting app
+    if astate is not None and astate != "running":
+        floor = max(floor, SERVICE_SEVERITY_FLOOR)
     cstate = signal.get("container_state")
     if cstate is not None and cstate != "running":
         floor = max(floor, SERVICE_SEVERITY_FLOOR)

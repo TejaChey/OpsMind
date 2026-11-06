@@ -201,6 +201,37 @@ class SupervisorWiring(unittest.TestCase):
         self.assertIn("opsmind-redis", rec["pre_action_snapshot"])
         self.assertTrue(rec["governor"]["allowed"])
 
+    def test_investigator_mode_uses_the_same_gates(self):
+        slow = {"source": "model", "trace": [{"tool": "list_containers"}],
+                "diagnosis": {"root_cause": "redis exited", "proposed_fix": "Restart the cache container",
+                              "confidence": 0.9}}
+        with mock.patch.object(self.sup.investigator, "investigate", return_value=slow) as inv:
+            rec = self.sup.run_once({}, dry_run=False, db={}, toolbox=object(),
+                                    governor_check=lambda a, t: (False, "no", {}))
+        inv.assert_called_once()
+        self.assertEqual(rec["execution"]["status"], "blocked_by_governor")   # same governor
+        self.assertEqual(rec["slow_tier"]["trace"], [{"tool": "list_containers"}])
+
+    def cross(self, inv_fix, inv_conf=0.75):
+        inv = {"source": "model", "trace": [],
+               "diagnosis": {"root_cause": "x", "proposed_fix": inv_fix, "confidence": inv_conf}}
+        with mock.patch.object(self.sup.investigator, "investigate", return_value=inv):
+            return self.sup.run_once({}, dry_run=True, db={}, toolbox=object(), cross_check=True)
+
+    def test_cross_check_agreement_acts_with_the_lower_confidence(self):
+        rec = self.cross("Start the redis cache container again", 0.75)
+        self.assertEqual(rec["mapped_action"], "RESTART_DEPENDENCY")
+        self.assertTrue(rec["slow_tier"]["cross_check"]["agree"])
+        self.assertEqual(rec["execution"]["status"], "would_execute")
+
+    def test_cross_check_disagreement_goes_to_a_human(self):
+        rec = self.cross("Reconnect the container to its Docker network")
+        self.assertEqual(rec["mapped_action"], "UNKNOWN_NEEDS_HUMAN")
+        self.assertFalse(rec["slow_tier"]["cross_check"]["agree"])
+        self.assertEqual(rec["execution"]["action"], "UNKNOWN_NEEDS_HUMAN")
+        from tools import executor             # and the REAL policy never auto-runs that
+        self.assertFalse(executor.check_policy("UNKNOWN_NEEDS_HUMAN", 1.0, executor.load_policy())[0])
+
     def test_dry_run_does_not_consult_the_governor(self):
         rec, seen = self.go(False, dry_run=True)
         self.assertEqual(seen, [])

@@ -113,6 +113,21 @@ class KnowledgeTests(unittest.TestCase):
                          ["dependency-down", "oom"])   # priority order, both reported
         self.assertEqual(m({"container_state": "running", "app_health_status": 200}), [])
 
+    def test_matching_does_not_over_match_novel_faults(self):
+        m = kn.matched_faults
+        # real disk-full and real partition errors (from eval_runs.jsonl) still match
+        self.assertEqual(m({"write_failed": True, "write_error":
+                            "could not extend file \"base/1/2\": No space left on device"}), ["disk-full"])
+        self.assertEqual(m({"db_connect_ok": False, "pg_ready_inside": True, "db_connect_error":
+                            "connection to server at \"localhost\", port 5433 failed: timeout expired"}),
+                         ["network-partition"])
+        # read-only DB: a failed write is not disk evidence
+        self.assertEqual(m({"write_failed": True, "write_error":
+                            "cannot execute CREATE TABLE in a read-only transaction"}), [])
+        # connection exhaustion: the server answered, so it is not a partition
+        self.assertEqual(m({"db_connect_ok": False, "pg_ready_inside": True, "db_connect_error":
+                            "port 5433 failed: FATAL:  sorry, too many clients already"}), [])
+
 
 class SupervisorHookPlacement(unittest.TestCase):
     def test_knowledge_hook_is_not_inside_run_once(self):

@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `tools` is
 
 import action_mapper
 import fast_tier
+import investigator
 import slow_tier
 from tools import deploy, escalation, executor, forensics, governor, knowledge
 from tools.jsonl_io import append_jsonl
@@ -78,7 +79,8 @@ def attach_deploy_facts(signal):
 
 def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT_MODEL,
              container="opsmind-postgres", dry_run=True, db=None, app_port=None,
-             knowledge_context=None, dependencies=None, governor_check=None, trigger=None):
+             knowledge_context=None, dependencies=None, governor_check=None, trigger=None,
+             toolbox=None, cross_check=False):
     """governor_check: None (the eval harness and tests: each trial stands alone) or a function
     (action, targets) -> (allowed, reason, evidence), e.g. tools.governor.check, consulted only
     when an action would really execute. A live action it allows first gets an evidence
@@ -103,7 +105,15 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
     else:
         action = "escalate_slow_tier"
         t = time.perf_counter()
-        slow = slow_tier.diagnose(result, slow_model, knowledge=knowledge_context)
+        if toolbox is None or cross_check:
+            slow = slow_tier.diagnose(result, slow_model, knowledge=knowledge_context)
+        if toolbox is not None:
+            inv = investigator.investigate(result, toolbox, slow_model,
+                                           knowledge=knowledge_context)
+            print(f"investigator: {len(inv.get('trace') or [])} tool calls "
+                  f"({', '.join(t['tool'] for t in inv.get('trace') or [])})")
+            if not cross_check:
+                slow = inv
         timings["slow_seconds"] = round(time.perf_counter() - t, 3)
         usage["slow"] = fast_tier.take_usage()
         d = slow["diagnosis"]
@@ -111,6 +121,20 @@ def run_once(signal, model=fast_tier.DEFAULT_MODEL, slow_model=slow_tier.DEFAULT
         print(f"proposed fix (not executed): {d['proposed_fix']} (confidence {d['confidence']})")
         mapped, guard_note = action_mapper.guard_restart_target(
             action_mapper.map_action(d["proposed_fix"]), result["signal"])
+        if cross_check and toolbox is not None:
+            di = inv["diagnosis"]
+            mapped_i, _ = action_mapper.guard_restart_target(
+                action_mapper.map_action(di["proposed_fix"]), result["signal"])
+            agree = mapped == mapped_i
+            slow = {**slow, "cross_check": {"investigator": inv, "pipeline_action": mapped.value,
+                                            "investigator_action": mapped_i.value,
+                                            "agree": agree}}
+            if agree:
+                d = {**d, "confidence": min(d["confidence"], di["confidence"])}
+            else:
+                mapped = action_mapper.Action.UNKNOWN_NEEDS_HUMAN
+                guard_note = (f"cross-check: pipeline -> {slow['cross_check']['pipeline_action']}, "
+                              f"investigator -> {mapped_i.value}; disagreement goes to a human")
         mapped_action = mapped.value
         print(f"mapped action: {mapped_action}" + (f" ({guard_note})" if guard_note else ""))
         t = time.perf_counter()
@@ -200,6 +224,12 @@ def main():
     p.add_argument("--slow-model", default=slow_tier.DEFAULT_MODEL)
     p.add_argument("--no-governor", action="store_true",
                    help="skip the cross-incident limits in tools/governor.py (default: on for --live)")
+    p.add_argument("--investigate", action="store_true",
+                   help="diagnose with the investigator agent (read-only tools, bounded loop) "
+                        "instead of the one-shot slow tier")
+    p.add_argument("--cross-check", action="store_true",
+                   help="run the one-shot slow tier AND the investigator; act only if both map "
+                        "to the same action, else hand to a human")
     p.add_argument("--trigger", default=None,
                    help="JSON describing what started this run (set by tools/alert_receiver.py); "
                         "recorded only, never shown to a model")
@@ -229,7 +259,10 @@ def main():
                       dependencies=[c for c in (args.container, args.cache)
                                     if fast_tier.container_state(c)],
                       governor_check=None if args.no_governor else governor.check,
-                      trigger=json.loads(args.trigger) if args.trigger else None)
+                      trigger=json.loads(args.trigger) if args.trigger else None,
+                      toolbox=investigator.Toolbox(db, args.app_port, deploy.recent_deploy_facts)
+                      if (args.investigate or args.cross_check) else None,
+                      cross_check=args.cross_check)
     print(f"logged run {record['run_id']} -> {TRAJECTORY_FILE}", file=sys.stderr)
     # A run a person must act on goes to the hand-off queue (main only, like the knowledge hook).
     try:

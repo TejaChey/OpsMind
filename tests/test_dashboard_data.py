@@ -50,3 +50,14 @@ class DashboardData(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HandOffQueue(unittest.TestCase):
+    def test_open_until_a_later_verified_fix(self):
+        from data import open_escalations
+        esc = [{"queued_at": "2026-11-06T10:00:00", "run_id": "a"},
+               {"queued_at": "2026-11-06T12:00:00", "run_id": "b"}]
+        runs = [{"timestamp": "2026-11-06T11:00:00", "verification": {"verified": True}},
+                {"timestamp": "2026-11-06T13:00:00", "verification": {"verified": False}}]
+        out = {e["run_id"]: e["status"] for e in open_escalations(esc, runs)}
+        self.assertEqual(out, {"a": "fixed later", "b": "OPEN"})

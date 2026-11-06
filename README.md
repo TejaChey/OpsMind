@@ -194,5 +194,8 @@ Run the full evaluation (about 35 minutes, needs Ollama and Docker, injects real
 python eval/run_eval.py && python eval/run_baselines.py && python eval/summarize_eval.py && python eval/summarize_eval.py --compare && python eval/make_charts.py
 ```
 
+## Agent mode and unseen failures
+`python agents/supervisor.py --investigate` swaps the one-shot diagnosis for an agent that chooses read-only tools (container states, logs, database activity and settings, deploy history, cache stats) in a bounded loop; `--cross-check` acts only when the agent and the one-shot pipeline agree. Tested on real failures OpsMind was never built for (connection exhaustion, read-only database, frozen app, two faults at once) and on known faults: [eval/results/novel_NOTES.md](eval/results/novel_NOTES.md). Short version: the test found a detection gap and a knowledge-matching bug (both fixed); with a local 7B model the agent wins where the cause must be looked up and loses on known faults; no wrong action would have run in any of the 84 decisions.
+
 ## Production readiness
 OpsMind can run behind standard monitoring: `docker compose -f services/docker-compose.yml --profile monitoring up -d` starts Prometheus and Alertmanager, and `python tools/alert_receiver.py --live` receives their alerts (results: [eval/results/alert_loop_NOTES.md](eval/results/alert_loop_NOTES.md)). Would a company use this? See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md): what the design already matches in industry guidance, the cross-incident safety limits added after reading outage postmortems (repeat/failed-fix governor, kill switch `touch OPSMIND_PAUSED`, evidence snapshot, human hand-off queue), and what is still missing before real use.

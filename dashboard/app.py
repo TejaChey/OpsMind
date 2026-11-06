@@ -7,14 +7,16 @@ import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from data import HARNESS, ROOT, RUNS, load_jsonl, mapped_action_counts, run_summary, stats  # noqa: E402
+from data import (ALERTS, ESCALATIONS, HARNESS, ROOT, RUNS, load_jsonl, mapped_action_counts,  # noqa: E402
+                  open_escalations, run_summary, stats)
 
 st.set_page_config(page_title="OpsMind", layout="wide")
 st.title("OpsMind")
 st.caption("Read-only view of trajectories, evaluation results and the knowledge bundle. "
            "Every figure is computed in code from the files; no model produces a number here.")
 
-tab_runs, tab_eval, tab_kb = st.tabs(["Incident runs", "Evaluation", "Knowledge"])
+tab_runs, tab_human, tab_eval, tab_kb = st.tabs(["Incident runs", "Needs a human", "Evaluation",
+                                                 "Knowledge"])
 
 # ---------------------------------------------------------------- runs
 with tab_runs:
@@ -90,6 +92,28 @@ with tab_eval:
             cols[i % 2].image(str(f), caption=f.stem)
     st.caption("Limits (n=10 per fault, one machine, offline configs measure decision quality only) "
                "are in eval/results/eval_full_NOTES.md.")
+
+# ---------------------------------------------------------------- hand-off queue + alerts
+with tab_human:
+    if (ROOT / "OPSMIND_PAUSED").exists():
+        st.error("Automation is PAUSED (OPSMIND_PAUSED exists): nothing executes automatically.")
+    esc = open_escalations(load_jsonl(ESCALATIONS), load_jsonl(RUNS))
+    st.subheader(f"Hand-off queue ({sum(e['status'] == 'OPEN' for e in esc)} open)")
+    if esc:
+        st.dataframe(pd.DataFrame([{k: e.get(k) for k in (
+            "status", "queued_at", "reason", "detail", "root_cause", "proposed_fix",
+            "mapped_action", "run_id")} for e in esc]), use_container_width=True, hide_index=True)
+    else:
+        st.info("Nothing has been handed to a human yet.")
+    st.subheader("Alerts from monitoring (Alertmanager)")
+    alerts = load_jsonl(ALERTS)
+    if alerts:
+        st.dataframe(pd.DataFrame(list(reversed(alerts)))[[c for c in (
+            "at", "event", "alertname", "mapped_action", "execution_status", "verified", "run_id")
+            if c in alerts[0] or any(c in x for x in alerts)]], use_container_width=True,
+            hide_index=True)
+    else:
+        st.info("No alerts received (start tools/alert_receiver.py behind the monitoring profile).")
 
 # ---------------------------------------------------------------- knowledge
 with tab_kb:

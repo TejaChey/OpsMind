@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RUNS = ROOT / "trajectories" / "runs.jsonl"
 HARNESS = ROOT / "trajectories" / "harness_runs.jsonl"
+ESCALATIONS = ROOT / "trajectories" / "escalations.jsonl"
+ALERTS = ROOT / "trajectories" / "alerts.jsonl"
 
 
 def load_jsonl(path):
@@ -69,3 +71,15 @@ def mapped_action_counts(runs):
         if a:
             counts[a] = counts.get(a, 0) + 1
     return counts
+
+
+def open_escalations(escalations, runs):
+    """Hand-offs a person still has to look at: newest first. An escalation counts as handled
+    once a LATER run verified a fix (same mapped action), decided in code."""
+    verified = sorted(r["timestamp"] for r in runs
+                      if (r.get("verification") or {}).get("verified") is True)
+    out = []
+    for e in sorted(escalations, key=lambda e: e.get("queued_at", ""), reverse=True):
+        later_fix = any(t > e.get("queued_at", "") for t in verified)
+        out.append({**e, "status": "fixed later" if later_fix else "OPEN"})
+    return out

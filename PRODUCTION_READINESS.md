@@ -56,6 +56,30 @@ broken rule fails a test). One real run on a real fault: Redis stopped, kill swi
 (run 324f9bbf). **Not yet shown live:** the repeat limit and the failed-fix rule (unit tests
 only), and the snapshot on a real live action.
 
+## Is it agentic, or automation? (2026-11-06)
+
+Honest answer: the production path is an **agentic workflow**: code decides what to measure
+and in what order, the model makes judgment calls at fixed points (escalate? what is wrong?
+which fix?). That is deliberate: every decision that matters is checked by code. A true
+**agent** now exists too: `agents/investigator.py`, where the model chooses read-only tools in a
+loop until it knows the cause (opt-in: `--investigate`, or `--cross-check` to require the agent
+and the workflow to agree before acting). On real failures it was never built for, and with a
+local 7B model, the agent was better where the cause had to be looked up and worse on known
+faults, 5–20x slower, and neither ever chose a wrong action that would have run
+(`eval/results/novel_NOTES.md`).
+
+## Surviving real-world failures (2026-11-06)
+
+Tested on 4 real failure types it was never built for (connection exhaustion, read-only
+database, frozen app, two faults at once). First result: it missed one completely (a frozen app)
+and its diagnosis was wrong on all 12 incidents, because (1) the floor treated "no answer" as
+"not measured" and (2) the knowledge layer showed it the wrong past incident, which it copied.
+Both were code fixes; after them the plain pipeline diagnosed the read-only and frozen-app
+cases 3/3. Across the 84 decisions no wrong action would have run. Still not handled: anything
+OpsMind has no read-only view of (e.g. application code bugs, slow queries without errors,
+gradual degradation), and it does not fix code: it restarts, rolls back, reconnects, or hands
+to a human.
+
 ## Still missing before a company would trust it (not built)
 
 1. **Integrations**: alert ingest from Alertmanager now exists (above), so OpsMind can sit

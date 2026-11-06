@@ -148,13 +148,26 @@ def matched_faults(signal):
     s = signal
     app = s.get("app_health_status")
     app_bad = isinstance(app, int) and not isinstance(app, bool) and app != 200
+    # Matching must not over-match: showing the WRONG past incident makes the model copy the
+    # wrong remedy (measured: 20/20 copies). The novel-fault test (eval/results/novel_NOTES.md)
+    # found two over-matches, fixed here:
+    #  * a failed write is disk evidence only if the error is about space (a read-only database
+    #    also fails writes; it was shown the disk-full precedent and "quoted" ENOSPC 3/3);
+    #  * a failed connect is a partition only if the server did NOT answer: a FATAL message
+    #    means the network worked (connection exhaustion was shown the partition precedent 3/3).
+    werr = (s.get("write_error") or "").lower()
+    space_error = any(k in werr for k in ("no space left", "disk full", "could not extend",
+                                          "could not write"))
+    server_answered = "fatal:" in (s.get("db_connect_error") or "").lower()
     hits = {
         "dependency-down": s.get("container_state") not in (None, "running"),
         "cache-down": s.get("redis_container_state") not in (None, "running"),
         "oom": (s.get("oom_kill_delta") or 0) > 0,
-        "disk-full": s.get("write_failed") is True or (s.get("data_disk_percent_used") or 0) >= 0.95,
+        "disk-full": (s.get("write_failed") is True and space_error)
+                     or (s.get("data_disk_percent_used") or 0) >= 0.95,
         "cpu-spike": (s.get("cpu_share_of_limit") or 0) >= 0.8 and (s.get("cpu_throttled_periods") or 0) > 0,
-        "network-partition": s.get("db_connect_ok") is False and s.get("pg_ready_inside") is True,
+        "network-partition": s.get("db_connect_ok") is False and s.get("pg_ready_inside") is True
+                             and not server_answered,
         "config-regression": app_bad and (s.get("last_deploy") or {}).get("status_when_deployed") == "bad"
                              and s.get("container_state") == "running",
     }

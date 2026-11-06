@@ -98,6 +98,15 @@ class FloorForcesEscalation(unittest.TestCase):
     def test_app_unreachable_status_none_does_not_force(self):
         self.assertNotForced(sig(app_health_status=None))
 
+    def test_app_probed_but_no_answer_forces(self):
+        # Novel-fault finding: a paused app times out; that is a failure, not "unmeasured".
+        self.assertForced(sig(app_health_status=None,
+                              app_health_error="app unreachable: timed out"))
+
+    def test_app_container_paused_or_exited_forces(self):
+        for st in ("paused", "exited", "restarting"):
+            self.assertForced(sig(app_health_status=200, app_container_state=st))
+
     def test_app_healthy_does_not_force(self):
         self.assertNotForced(sig(app_health_status=200, app_container_state="running"))
 

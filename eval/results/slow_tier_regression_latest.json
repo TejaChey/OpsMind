@@ -1,5 +1,5 @@
 {
-  "git_commit": "c7bf7f4+uncommitted",
+  "git_commit": "fb13650+uncommitted",
   "model": "qwen2.5:7b",
   "knowledge": "on",
   "prompt_sha256_full": "a4459ce3b12c",
@@ -41,9 +41,9 @@
       "wrong": []
     },
     "cache-down": {
-      "correct": 2,
-      "correct_incl_alt": 2,
-      "n": 2,
+      "correct": 17,
+      "correct_incl_alt": 17,
+      "n": 17,
       "fallback": 0,
       "wrong": []
     },
@@ -53,16 +53,16 @@
       "n": 10,
       "fallback": 0,
       "wrong": [
-        "bc58b794:INCREASE_CPU_LIMIT",
-        "0881d70c:INCREASE_CPU_LIMIT",
-        "abf0a838:INCREASE_CPU_LIMIT",
-        "5721b99d:INCREASE_CPU_LIMIT",
-        "53be3c44:INCREASE_CPU_LIMIT",
-        "d439dea1:INCREASE_CPU_LIMIT",
-        "49529510:INCREASE_CPU_LIMIT",
-        "112e0108:INCREASE_CPU_LIMIT",
-        "ebbb3236:INCREASE_CPU_LIMIT",
-        "3c90548e:INCREASE_CPU_LIMIT"
+        "870ba997:INCREASE_CPU_LIMIT",
+        "5ca9ed44:INCREASE_CPU_LIMIT",
+        "02d7853d:INCREASE_CPU_LIMIT",
+        "2f8c5484:INCREASE_CPU_LIMIT",
+        "fcf01dae:INCREASE_CPU_LIMIT",
+        "f42c2e96:INCREASE_CPU_LIMIT",
+        "495d3430:INCREASE_CPU_LIMIT",
+        "4ed04f50:INCREASE_CPU_LIMIT",
+        "fc692d38:INCREASE_CPU_LIMIT",
+        "49579530:INCREASE_CPU_LIMIT"
       ]
     }
   },

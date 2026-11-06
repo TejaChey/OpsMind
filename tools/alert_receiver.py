@@ -97,11 +97,12 @@ def run_status(run_id, runs_file=RUNS_FILE):
     return {}
 
 
-def supervisor_runner(live, window):
+def supervisor_runner(live, window, investigate=False):
     """Runs one triage as a separate process (a crash there cannot take the receiver down)."""
     def run(trigger):
         cmd = [sys.executable, str(ROOT / "agents" / "supervisor.py"), "--window", str(window),
-               "--trigger", json.dumps(trigger)] + (["--live"] if live else [])
+               "--trigger", json.dumps(trigger)] + (["--live"] if live else []) \
+            + (["--investigate"] if investigate else [])
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=TRIAGE_TIMEOUT, cwd=ROOT)
         m = re.search(r"logged run (\S+)", p.stderr)
         return {"exit_code": p.returncode, "run_id": m.group(1) if m else None,
@@ -257,6 +258,8 @@ def main():
     p.add_argument("--window", type=int, default=5, help="supervisor sampling window (seconds)")
     p.add_argument("--live", action="store_true",
                    help="triages may execute policy-approved actions (default: dry run)")
+    p.add_argument("--investigate", action="store_true",
+                   help="triage with the investigator agent instead of the one-shot slow tier")
     a = p.parse_args()
     if a.init_token:
         print("created" if init_token() else "exists", TOKEN_FILE)
@@ -269,7 +272,7 @@ def main():
         sys.exit(f"no token file at {TOKEN_FILE}; run with --init-token first (refusing to run "
                  "an unauthenticated receiver)")
     token = TOKEN_FILE.read_text(encoding="utf-8").strip()
-    receiver = Receiver(supervisor_runner(a.live, a.window))
+    receiver = Receiver(supervisor_runner(a.live, a.window, a.investigate))
     threading.Thread(target=receiver.worker, daemon=True).start()
     srv = ThreadingHTTPServer((a.host, a.port), make_handler(receiver, token))
     print(f"alert receiver on {a.host}:{a.port} ({'LIVE' if a.live else 'dry run'}); "
