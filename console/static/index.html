@@ -13,9 +13,10 @@
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 var(--sans)}
 button{font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
-header{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:#0d111a;position:sticky;top:0;z-index:5}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:#0d111a;position:sticky;top:0;z-index:5}
 .brand{font-weight:700;font-size:16px;letter-spacing:.2px}
 .brand small{display:block;font-weight:400;color:var(--muted);font-size:11px}
 .spacer{flex:1}
@@ -101,7 +102,7 @@ pre{margin:4px 0 0;padding:8px;background:#0b0f18;border:1px solid var(--line);b
 .approval{border:1px solid var(--human);background:#1f190b;border-radius:10px;padding:10px;margin-bottom:8px}
 .approval .row{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
 ul.facts{margin:0;padding-left:18px} ul.facts li{margin:2px 0}
-#runs{position:fixed;right:18px;top:58px;width:460px;max-height:70vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.5);display:none;z-index:10}
+#runs{position:fixed;right:18px;top:58px;width:460px;max-width:calc(100vw - 32px);max-height:70vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.5);display:none;z-index:10}
 #runs .r{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer}
 #runs .r:hover{background:var(--panel2)}
 #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1b2233;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none;z-index:20}
@@ -170,7 +171,18 @@ function h(tag, attrs, ...kids){
 }
 const fmt = x => typeof x === "string" ? x : JSON.stringify(x, null, 2);
 function toast(msg, ms=3200){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", ms); }
-async function api(path, opts){ const r = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts||{}));
+/* Replay-only build (console/export_static.py) embeds recorded runs here; nothing is fetched. */
+const STATIC = window.OPSMIND_STATIC || null;
+async function api(path, opts){
+  if (STATIC){
+    if (opts && opts.method && opts.method !== "GET") throw new Error("This is the replay-only page. Run the console on the laptop to inject faults or run triage.");
+    if (path === "/api/topology") return STATIC.topology;
+    if (path === "/api/runs") return STATIC.runs;
+    const m = path.match(/^\/api\/runs\/([^/]+)\/events$/);
+    if (m && STATIC.events[m[1]]) return STATIC.events[m[1]];
+    throw new Error("not available in the replay-only page");
+  }
+  const r = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts||{}));
   if (!r.ok){ let m = r.status+""; try{ m = (await r.json()).detail || m }catch(e){} throw new Error(m) } return r.json(); }
 
 /* ---------------- run state (one reducer for live and replay) ---------------- */
@@ -185,6 +197,27 @@ function fresh(){ return {runId:null, t0:null, nodes:{}, signal:null, abnormal:[
   plan:{}, pending:null, human:null, actions:[], verification:null, outcome:null, feed:[], tLast:null}; }
 S = fresh();
 
+function topoFromSignal(sig, base){
+  const t = JSON.parse(JSON.stringify(base));
+  const set = (c, st) => { if (st) t.containers[c].state = st; };
+  set("opsmind-postgres", sig.container_state); set("opsmind-app", sig.app_container_state);
+  set("opsmind-redis", sig.redis_container_state);
+  const partitioned = sig.db_connect_ok === false && sig.pg_ready_inside === true &&
+    !/fatal/i.test(sig.db_connect_error || "");
+  t.containers["opsmind-postgres"].networks = partitioned ? {} : {services_default: ["postgres"]};
+  t.app_health = {status: sig.app_health_status ?? null, db_ok: sig.app_db_ok ?? null, redis_ok: sig.app_redis_ok ?? null};
+  const ch = (sig.last_deploy || {}).changed_vs_last_known_good || {};
+  t.live_config = Object.assign({}, t.known_good);
+  for (const [k, v] of Object.entries(ch)) t.live_config[k] = (v && typeof v === "object" && "to" in v) ? v.to : Array.isArray(v) ? v[1] : v;
+  return t;
+}
+function topoFromAfter(after, prev){
+  const t = JSON.parse(JSON.stringify(prev));
+  for (const c of Object.keys(t.containers)) if (after[c]) t.containers[c].state = after[c];
+  if (after.app_health) t.app_health = after.app_health;
+  if (after.live_config) t.live_config = after.live_config;
+  return t;
+}
 function reduce(ev){
   if (S.t0 === null) S.t0 = ev.t;
   S.tLast = ev.t;
@@ -197,7 +230,8 @@ function reduce(ev){
     case "node_end": if (S.nodes[nodeKey]){ S.nodes[nodeKey].status = "done"; S.nodes[nodeKey].t1 = ev.t; }
       if (a.startsWith("specialist:")) S.specs[a.split(":")[1]].active=false;
       return;
-    case "signal": S.signal = d.signal; S.abnormal = d.abnormal || []; break;
+    case "signal": S.signal = d.signal; S.abnormal = d.abnormal || [];
+      if (STATIC){ topo = topoFromSignal(d.signal, STATIC.topology); renderTopo(); } break;
     case "decision": S.triage = d; break;
     case "route": S.route = d.specialists || []; S.precedent = d.precedent_shown;
       for (const n of S.route) S.specs[n] = S.specs[n] || {calls:[], finding:null, thoughts:[]}; break;
@@ -210,7 +244,8 @@ function reduce(ev){
     case "gate": S.plan[d.step] = d; break;
     case "awaiting_human": S.pending = d; S.nodes["approval"] = {status:"wait", t0:ev.t}; break;
     case "human_decision": S.pending = null; S.human = d; break;
-    case "action": S.actions.push(d); break;
+    case "action": S.actions.push(d);
+      if (STATIC && d.topology_after && topo){ topo = topoFromAfter(d.topology_after, topo); renderTopo(); } break;
     case "verification": S.verification = d; break;
     case "outcome": S.outcome = d; break;
   }
@@ -465,7 +500,7 @@ $("#runsBtn").onclick = async () => {
     h("label",{class:"chk"},"speed ", (()=>{ const s=h("select",{id:"speed",class:"btn small"}); for (const v of ["1","3","10","0"]) s.append(h("option",{value:v}, v==="0"?"instant":v+"×")); s.value="3"; return s; })())));
   for (const r of list){
     box.append(h("div",{class:"r", onclick:()=>{ box.style.display="none"; replay(r.run_id); }},
-      h("div",{class:"hd",style:"display:flex;justify-content:space-between"}, h("span",{class:"mono"}, r.run_id), h("span",{class:"badge "+((r.outcome&&r.outcome.status)==="resolved"?"ok":"neutral")}, r.outcome ? r.outcome.status.replaceAll("_"," ") : "in progress")),
+      h("div",{class:"hd",style:"display:flex;justify-content:space-between"}, h("span",{class:r.label?"":"mono"}, r.label || r.run_id), h("span",{class:"badge "+((r.outcome&&r.outcome.status)==="resolved"?"ok":"neutral")}, r.outcome ? r.outcome.status.replaceAll("_"," ") : "in progress")),
       h("div",{class:"small muted"}, `${r.seconds ?? "?"} s · ${r.specialists.join(", ") || "no specialists"}`), r.root_cause ? h("div",{class:"small"}, r.root_cause) : null));
   }
   if (!list.length) box.append(h("div",{class:"r empty"},"No recorded runs yet."));
@@ -490,7 +525,16 @@ async function replay(runId, speedOverride){
 }
 document.addEventListener("click", e => { const b=$("#runs"); if (b.style.display==="block" && !b.contains(e.target) && e.target.id!=="runsBtn") b.style.display="none"; });
 
-renderAll(true); pollTopo(); setInterval(pollTopo, 2000);
+renderAll(true);
+if (STATIC){
+  topo = STATIC.topology; renderTopo(); drawFaults();
+  for (const id of ["runBtn","pauseBtn","mDry","mLive","hitl","pOllama","pDocker"]){ const el = document.getElementById(id); if (el) (el.closest("label") || el).hidden = true; }
+  const seg = document.querySelector(".seg"); if (seg) seg.hidden = true;
+  document.getElementById("faults").replaceChildren(h("div",{class:"small muted"},
+    "Fault injection and live runs need the local system (Docker and the models). This page replays recorded runs: pick one with Replay a run."));
+  const b = document.querySelector(".brand small"); if (b) b.textContent = "Replay of recorded incident runs. Every decision shown was made live by the system.";
+  if (STATIC.featured) replay(STATIC.featured, 0);
+} else { pollTopo(); setInterval(pollTopo, 2000); }
 // Deep link: /?run=<run_id>&speed=<0|1|3|10> opens a recorded run (0 = instantly).
 { const q = new URLSearchParams(location.search);
   if (q.get("run")) replay(q.get("run"), q.has("speed") ? +q.get("speed") : 3); }
