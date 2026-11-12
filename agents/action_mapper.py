@@ -52,7 +52,10 @@ RULES = {
         r"\bpg_(terminate|cancel)_backend\b",
     ],
     Action.RECONNECT_NETWORK: [
-        r"\b(re-?connect|re-?attach|restore|re-?establish|re-?join)\b.{0,40}"
+        # 70, not 40: "Reconnect the PostgreSQL container to the services_default network"
+        # failed closed in the multi-agent evaluation (2026-11-12); widening changed no stored
+        # proposal except "reconnect ... network" ones (checked against all 112).
+        r"\b(re-?connect|re-?attach|restore|re-?establish|re-?join)\b.{0,70}"
         r"\b(network|connectivity|connection)\b",
         r"\bnetwork\s+(connect|reconnect)\b",
     ],
@@ -80,6 +83,11 @@ APP_RESTART = re.compile(
     r"(?:(?!\b(so|because|until|which|then|while)\b).){0,25}"   # do not read across a clause
     r"\b(app|apps|application|web ?app|web ?server|frontend|api)\b")
 RESTART_ACTIONS = (Action.RESTART_CONTAINER, Action.RESTART_DEPENDENCY)
+# Same rule for reconnecting: the executor reconnects the monitored database container, so a
+# proposal to reconnect the web app names a different target than the one code would act on.
+APP_RECONNECT = re.compile(
+    r"\b(re-?connect|re-?attach)\b(?:(?!\b(so|because|until|which|then|while)\b).){0,25}"
+    r"\b(app|apps|application|web ?app|web ?server|frontend|api|opsmind-app)\b")
 
 NEGATION = re.compile(r"\b(do not|don't|dont|never|avoid|without|instead of|rather than)\b")
 
@@ -96,6 +104,8 @@ def map_action(proposed_fix):
         matched.remove(Action.RESTART_CONTAINER)  # "restart the database container": specific wins
     if len(matched) == 1:
         if matched[0] in RESTART_ACTIONS and APP_RESTART.search(text):
+            return Action.UNKNOWN_NEEDS_HUMAN
+        if matched[0] == Action.RECONNECT_NETWORK and APP_RECONNECT.search(text):
             return Action.UNKNOWN_NEEDS_HUMAN
         return matched[0]
     return Action.UNKNOWN_NEEDS_HUMAN  # none matched, or conflicting (e.g. "increase memory and restart")

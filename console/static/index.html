@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpsMind Console</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#121722; --panel2:#171d2b; --line:#232b3d; --text:#e6e9f0; --muted:#8b93a7;
+  --dim:#5c6478; --accent:#7c8cff; --agent:#a78bfa; --code:#38bdf8; --human:#fbbf24;
+  --ok:#34d399; --bad:#f87171; --warn:#fbbf24; --unk:#94a3b8;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 var(--sans)}
+button{font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:#0d111a;position:sticky;top:0;z-index:5}
+.brand{font-weight:700;font-size:16px;letter-spacing:.2px}
+.brand small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--unk)}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:transparent;border:0;padding:6px 11px;color:var(--muted)}
+.seg button.on{background:var(--panel2);color:var(--text)}
+.seg button.on.live{background:#3b1d1d;color:#fecaca}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+.btn:hover{border-color:#3a4560}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0b0e14;font-weight:600}
+.btn.primary:disabled{opacity:.45;cursor:default}
+.btn.danger{border-color:#5b2a2a;color:#fecaca}
+.btn.small{padding:3px 8px;font-size:12px}
+label.chk{display:inline-flex;gap:6px;align-items:center;color:var(--muted);white-space:nowrap}
+main{padding:14px 18px;display:grid;gap:14px;grid-template-columns:300px minmax(0,1fr) 380px;grid-template-rows:auto minmax(0,1fr);height:calc(100vh - 58px)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-height:0;display:flex;flex-direction:column}
+.panel h2{margin:0;padding:10px 14px;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.panel .body{padding:12px 14px;overflow:auto;min-height:0}
+#flowPanel{grid-column:1 / 4}
+#flow{display:flex;align-items:stretch;gap:0;padding:14px;overflow-x:auto}
+.stage{display:flex;align-items:center}
+.stage:not(:last-child)::after{content:"";width:18px;height:2px;background:var(--line);margin:0 2px;flex:none}
+.stage.passed:not(:last-child)::after{background:#3b4a6b}
+.node{min-width:108px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel2);position:relative;transition:border-color .2s, box-shadow .2s, opacity .2s}
+.node .k{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+.node .n{font-weight:600;margin-top:1px}
+.node .t{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;min-height:15px}
+.node.agent .k{color:var(--agent)} .node.code .k{color:var(--code)} .node.human .k{color:var(--human)}
+.node.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,140,255,.18);animation:pulse 1.2s infinite}
+.node.done{border-color:#2f6b55}
+.node.skipped{opacity:.35}
+.node.wait{border-color:var(--human);box-shadow:0 0 0 3px rgba(251,191,36,.2);animation:pulse 1.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(124,140,255,.06)}}
+.group{display:flex;flex-direction:column;gap:6px}
+.group .node{min-width:150px;padding:6px 10px}
+.loop{font-size:10px;color:var(--muted);text-align:center;margin-top:3px}
+/* topology */
+#topo svg{width:100%;max-width:340px;height:auto;display:block;margin:0 auto}
+.tlabel{font:600 12px var(--sans);fill:var(--text)}
+.tsub{font:11px var(--mono);fill:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px;margin-top:8px}
+.kv span:nth-child(odd){color:var(--muted)}
+.mono{font-family:var(--mono);font-size:12px}
+.faults{display:grid;gap:6px;margin-top:6px}
+.fault{display:flex;align-items:center;gap:6px;justify-content:space-between;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.fault .d{font-size:12px} .fault .d small{display:block;color:var(--dim);font-size:11px}
+.fault .b{display:flex;gap:4px;flex:none}
+h3{font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+h3:first-child{margin-top:0}
+/* feed */
+#feed{font-size:12.5px}
+.ev{display:grid;grid-template-columns:52px 120px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed #1c2333;align-items:start}
+.ev .ts{font-family:var(--mono);color:var(--dim);font-size:11px;padding-top:2px}
+.chip{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:118px}
+.chip.agent{color:#ddd6fe;border-color:#4c3d7a;background:#1d1830}
+.chip.code{color:#bae6fd;border-color:#1e4a63;background:#0f1d27}
+.chip.human{color:#fde68a;border-color:#6b5317;background:#251d0b}
+.ev .msg{min-width:0;word-wrap:break-word}
+details{margin-top:3px} summary{cursor:pointer;color:var(--muted);font-size:11.5px}
+pre{margin:4px 0 0;padding:8px;background:#0b0f18;border:1px solid var(--line);border-radius:6px;font:11px/1.4 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;color:#cbd2e1}
+.tag{font-family:var(--mono);font-size:11px;color:var(--accent)}
+/* decisions */
+.card{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:var(--panel2)}
+.card .hd{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid}
+.badge.faulty,.badge.bad,.badge.refused,.badge.human_rejected{color:#fecaca;border-color:#7f2d2d;background:#2a1414}
+.badge.healthy,.badge.ok,.badge.auto,.badge.human_approved,.badge.resolved{color:#bbf7d0;border-color:#22604a;background:#0f241c}
+.badge.unknown,.badge.needs_human,.badge.warn{color:#fde68a;border-color:#6b5317;background:#251d0b}
+.badge.neutral{color:var(--muted);border-color:var(--line)}
+.checks{display:grid;gap:3px;margin-top:6px}
+.check{display:grid;grid-template-columns:16px 72px 1fr;gap:6px;font-size:12px}
+.check .i.ok{color:var(--ok)} .check .i.no{color:var(--bad)}
+.check .c{color:var(--muted)}
+.muted{color:var(--muted)} .small{font-size:12px}
+.empty{color:var(--dim);font-style:italic;font-size:12px}
+.outcome{border-radius:10px;padding:12px;font-weight:600;margin-bottom:8px;border:1px solid}
+.outcome.good{background:#0f241c;border-color:#22604a;color:#bbf7d0}
+.outcome.mid{background:#251d0b;border-color:#6b5317;color:#fde68a}
+.outcome.bad{background:#2a1414;border-color:#7f2d2d;color:#fecaca}
+.approval{border:1px solid var(--human);background:#1f190b;border-radius:10px;padding:10px;margin-bottom:8px}
+.approval .row{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
+ul.facts{margin:0;padding-left:18px} ul.facts li{margin:2px 0}
+#runs{position:fixed;right:18px;top:58px;width:460px;max-height:70vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.5);display:none;z-index:10}
+#runs .r{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+#runs .r:hover{background:var(--panel2)}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1b2233;border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none;z-index:20}
+.legend{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+@media (max-width:1200px){main{grid-template-columns:1fr;height:auto}#flowPanel{grid-column:auto}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">OpsMind<small>multi-agent incident response, every consequential decision checked by code</small></div>
+  <span class="pill" id="pOllama"><span class="dot"></span>models</span>
+  <span class="pill" id="pDocker"><span class="dot"></span>services</span>
+  <div class="spacer"></div>
+  <div class="seg" title="Dry run: agents investigate and plan, nothing changes. Live: approved steps really run.">
+    <button id="mDry" class="on">Dry run</button><button id="mLive">Live</button>
+  </div>
+  <label class="chk" title="Steps the code will not run on its own wait for your approval here"><input type="checkbox" id="hitl" checked> ask me before risky steps</label>
+  <button class="btn primary" id="runBtn">Run triage</button>
+  <button class="btn" id="runsBtn">Replay a run</button>
+  <button class="btn danger" id="pauseBtn" title="Kill switch: nothing executes while paused">Pause automation</button>
+</header>
+<div id="runs"></div>
+<div id="toast"></div>
+
+<main>
+  <section class="panel" id="flowPanel">
+    <h2>Incident graph <span id="runLabel" class="mono" style="text-transform:none;letter-spacing:0;color:var(--dim)"></span>
+      <span class="legend"><span><i style="background:var(--agent)"></i>model agent</span><span><i style="background:var(--code)"></i>deterministic code</span><span><i style="background:var(--human)"></i>human</span></span></h2>
+    <div id="flow"></div>
+  </section>
+
+  <section class="panel">
+    <h2>System</h2>
+    <div class="body">
+      <div id="topo"></div>
+      <div class="kv" id="topoKv"></div>
+      <h3>Inject a test fault</h3>
+      <div class="faults" id="faults"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Agent activity <span id="elapsed" class="mono" style="margin-left:auto;text-transform:none;letter-spacing:0"></span></h2>
+    <div class="body" id="feed"><div class="empty">Inject a fault on the left, then press Run triage. Or replay a recorded run.</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Decisions</h2>
+    <div class="body" id="decisions"><div class="empty">Findings, the plan, every code check and the outcome appear here.</div></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})){
+    if (k === "class") el.className = v; else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()){ if (kid === null || kid === undefined || kid === false) continue;
+    el.append(kid instanceof Node ? kid : document.createTextNode(String(kid))); }
+  return el;
+}
+const fmt = x => typeof x === "string" ? x : JSON.stringify(x, null, 2);
+function toast(msg, ms=3200){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", ms); }
+async function api(path, opts){ const r = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts||{}));
+  if (!r.ok){ let m = r.status+""; try{ m = (await r.json()).detail || m }catch(e){} throw new Error(m) } return r.json(); }
+
+/* ---------------- run state (one reducer for live and replay) ---------------- */
+const SPECS = ["database","network","application","cache"];
+const NODES = [
+  ["sense","Sense","code","collect facts"],["triage","Triage","agent","3B + code floor"],["route","Router","code","pick specialists"],
+  ["specialists","Specialists","agent","7B, parallel"],["commander","Commander","agent","7B plan"],["critic","Critic","agent","7B review"],
+  ["gate","Gate","code","map, policy, evidence, governor"],["approval","Human","human","approve / reject"],
+  ["act","Act","code","target chosen in code"],["verify","Verify","code","fault-specific probes"],["close","Record","code","log, knowledge, hand-off"]];
+let S;
+function fresh(){ return {runId:null, t0:null, nodes:{}, signal:null, abnormal:[], triage:null, route:[], specs:{}, diags:[], crits:[],
+  plan:{}, pending:null, human:null, actions:[], verification:null, outcome:null, feed:[], tLast:null}; }
+S = fresh();
+
+function reduce(ev){
+  if (S.t0 === null) S.t0 = ev.t;
+  S.tLast = ev.t;
+  const d = ev.data || {}, a = ev.agent || "";
+  const nodeKey = a.startsWith("specialist:") ? a : a;
+  switch(ev.type){
+    case "node_start": S.nodes[nodeKey] = {status:"active", t0:ev.t};
+      if (a.startsWith("specialist:")){ const n=a.split(":")[1]; S.specs[n] = S.specs[n] || {calls:[], finding:null, thoughts:[]}; S.specs[n].active=true; }
+      break;
+    case "node_end": if (S.nodes[nodeKey]){ S.nodes[nodeKey].status = "done"; S.nodes[nodeKey].t1 = ev.t; }
+      if (a.startsWith("specialist:")) S.specs[a.split(":")[1]].active=false;
+      return;
+    case "signal": S.signal = d.signal; S.abnormal = d.abnormal || []; break;
+    case "decision": S.triage = d; break;
+    case "route": S.route = d.specialists || []; S.precedent = d.precedent_shown;
+      for (const n of S.route) S.specs[n] = S.specs[n] || {calls:[], finding:null, thoughts:[]}; break;
+    case "tool_call": spec(a).calls.push({id:d.id, tool:d.tool, args:d.args, result:null}); break;
+    case "tool_result": { const c = spec(a).calls.find(c=>c.id===d.id); if (c) c.result = d.result; break; }
+    case "thought": spec(a).thoughts.push(d.text); break;
+    case "finding": spec(a).finding = d; break;
+    case "diagnosis": S.diags.push(d); break;
+    case "critique": S.crits.push(d); break;
+    case "gate": S.plan[d.step] = d; break;
+    case "awaiting_human": S.pending = d; S.nodes["approval"] = {status:"wait", t0:ev.t}; break;
+    case "human_decision": S.pending = null; S.human = d; break;
+    case "action": S.actions.push(d); break;
+    case "verification": S.verification = d; break;
+    case "outcome": S.outcome = d; break;
+  }
+  S.feed.push(ev);
+}
+function spec(a){ return S.specs[a] = S.specs[a] || {calls:[], finding:null, thoughts:[]}; }
+
+/* ---------------- rendering ---------------- */
+function dur(n){ if (!n) return ""; const end = n.t1 || S.tLast; return n.t0 ? ((end - n.t0).toFixed(1)+"s") : ""; }
+function nodeState(key){
+  if (key === "specialists"){
+    const ns = S.route.map(n => S.nodes["specialist:"+n]).filter(Boolean);
+    if (!ns.length) return S.nodes["commander"] ? "skipped" : (S.outcome ? "skipped" : "");
+    return ns.some(n=>n.status==="active") ? "active" : "done";
+  }
+  const n = S.nodes[key]; if (n) return n.status;
+  if (S.outcome) return "skipped";
+  return "";
+}
+function renderFlow(){
+  const f = $("#flow"); f.replaceChildren();
+  let passed = true;
+  for (const [key,label,kind,sub] of NODES){
+    const st = nodeState(key);
+    let inner;
+    if (key === "specialists"){
+      const list = S.route.length ? S.route : SPECS;
+      inner = h("div",{class:"group"}, list.map(n => {
+        const nn = S.nodes["specialist:"+n], sp = S.specs[n], fi = sp && sp.finding;
+        const cls = "node agent " + (nn ? nn.status : (S.route.length ? "" : "skipped"));
+        return h("div",{class:cls}, h("div",{class:"k"}, n),
+          h("div",{class:"t"}, nn ? (fi ? `${fi.status}${fi.grounded? " · grounded":""}` : `${(sp?sp.calls.length:0)} tool calls`) : (S.route.length? "not needed":"")),
+          nn ? h("div",{class:"t"}, dur(nn)) : null);
+      }));
+    } else {
+      let extra = "";
+      if (key==="triage" && S.triage) extra = S.triage.escalate ? (S.triage.overridden_by_floor ? "escalated by floor" : "escalated") : "no incident";
+      if (key==="critic" && S.crits.length) extra = S.crits.map(c=>c.verdict).join(" → ");
+      if (key==="gate" && Object.keys(S.plan).length) extra = Object.values(S.plan).map(p=>p.decision).join(", ");
+      if (key==="verify" && S.verification) extra = S.verification.verified ? "verified" : "NOT verified";
+      inner = h("div",{class:`node ${kind} ${st}`}, h("div",{class:"k"}, kind==="agent"?"agent":kind==="human"?"human":"code"),
+        h("div",{class:"n"}, label), h("div",{class:"t"}, extra || sub), h("div",{class:"t"}, dur(S.nodes[key])));
+    }
+    const stage = h("div",{class:"stage" + (passed && st ? " passed":"")}, inner);
+    if (key==="critic" && S.crits.length>1) inner.append(h("div",{class:"loop"}, "↺ sent back to commander once"));
+    f.append(stage);
+  }
+  $("#runLabel").textContent = S.runId ? S.runId : "";
+  $("#elapsed").textContent = S.t0 ? ((S.tLast - S.t0).toFixed(1) + " s") : "";
+}
+
+const CODE_AGENTS = new Set(["sense","router","gate","executor","verifier","close"]);
+function chipFor(a){
+  const name = (a||"").replace("specialist:","");
+  const kind = a==="approval" ? "human" : CODE_AGENTS.has(a) ? "code" : "agent";
+  return h("span",{class:"chip "+kind, title:name}, name);
+}
+function evLine(ev){
+  const d = ev.data || {}, ts = S.t0 ? "+"+(ev.t - S.t0).toFixed(1)+"s" : "";
+  let msg;
+  switch(ev.type){
+    case "node_start": return null;
+    case "signal": msg = h("div",{}, "Measured the system. ", d.abnormal && d.abnormal.length ? `${d.abnormal.length} abnormal fact(s):` : "Nothing abnormal.",
+        d.abnormal && d.abnormal.length ? h("ul",{class:"facts"}, d.abnormal.map(x=>h("li",{},x))) : null,
+        h("details",{}, h("summary",{},"full signal"), h("pre",{}, fmt(d.signal)))); break;
+    case "decision": msg = h("div",{}, d.escalate ? `Escalate (severity ${d.severity}). ` : "No incident. ",
+        d.overridden_by_floor ? h("b",{},"The model said no; the code floor overrode it.") : ""); break;
+    case "route": msg = h("div",{}, "Dispatching ", h("b",{}, d.specialists.join(", ")), " in parallel.",
+        d.precedent_shown ? " Past verified incidents of this type will be shown to the commander." : ""); break;
+    case "tool_call": msg = h("div",{}, h("span",{class:"tag"}, `[${d.id}] `), `${d.tool}(${Object.keys(d.args||{}).length? JSON.stringify(d.args):""})`); break;
+    case "tool_result": msg = h("details",{}, h("summary",{}, h("span",{class:"tag"},`[${d.id}] `), "result"), h("pre",{}, d.result)); break;
+    case "thought": msg = h("div",{class:"muted"}, d.text); break;
+    case "finding": msg = h("div",{}, h("span",{class:"badge "+d.status}, d.status), " ",
+        d.grounded ? h("span",{class:"badge ok"},"grounded") : h("span",{class:"badge warn"},"not grounded"), " ", d.summary,
+        d.evidence && d.evidence.length ? h("div",{class:"small muted"}, "evidence: "+d.evidence.join(", ")) : null,
+        d.note ? h("div",{class:"small",style:"color:var(--warn)"}, d.note) : null); break;
+    case "diagnosis": msg = h("div",{}, h("b",{}, d.root_cause), h("ol",{style:"margin:4px 0 0;padding-left:18px"},
+        d.steps.map(s=>h("li",{}, `[${s.component}] ${s.fix}`))), h("div",{class:"small muted"}, `confidence ${d.confidence}`)); break;
+    case "critique": msg = h("div",{}, h("span",{class:"badge "+(d.verdict==="approve"?"ok":"warn")}, d.verdict), " ", d.reason,
+        d.unexplained_facts && d.unexplained_facts.length ? h("ul",{class:"facts"}, d.unexplained_facts.map(x=>h("li",{},x))) : null); break;
+    case "gate": msg = h("div",{}, `Step ${d.step}: "${d.fix}" → `, h("b",{}, d.action), " → ", h("span",{class:"badge "+d.decision}, d.decision.replace("_"," "))); break;
+    case "awaiting_human": msg = h("div",{style:"color:var(--human)"}, "Waiting for a person to approve or reject."); break;
+    case "human_decision": msg = h("div",{}, d.approved.length ? `Approved step(s) ${d.approved.join(", ")}` : "Rejected", ` (by ${d.by}).`); break;
+    case "action": msg = h("div",{}, h("b",{}, d.action), " → ", h("span",{class:"badge "+(d.status==="executed"?"ok":d.status==="would_execute"?"neutral":"warn")}, d.status), " ", d.reason || "",
+        d.topology_before && d.topology_after ? h("details",{}, h("summary",{},"what changed"), h("pre",{}, diffTopo(d.topology_before, d.topology_after))) : null); break;
+    case "verification": msg = h("div",{}, h("span",{class:"badge "+(d.verified?"ok":"bad")}, d.verified?"verified":"not verified"), ` ${d.reason} (${d.elapsed_seconds}s)`); break;
+    case "outcome": msg = h("div",{}, h("b",{}, d.status.replaceAll("_"," ")), d.notes && d.notes.length ? h("div",{class:"small muted"}, d.notes.join(" · ")) : null); break;
+    case "rejected_output": msg = h("div",{style:"color:var(--warn)"}, "Rejected invalid model output: ", d.error); break;
+    default: return null;
+  }
+  return h("div",{class:"ev"}, h("div",{class:"ts"}, ts), h("div",{}, chipFor(ev.agent)), h("div",{class:"msg"}, msg));
+}
+function diffTopo(b,a){
+  const out=[];
+  for (const k of new Set([...Object.keys(b||{}), ...Object.keys(a||{})])){
+    const x = JSON.stringify(b[k]), y = JSON.stringify(a[k]);
+    if (x !== y) out.push(`${k}: ${x}  →  ${y}`);
+  }
+  return out.length ? out.join("\n") : "no visible change (dry run, or nothing to change)";
+}
+let rendered = 0;
+function renderFeed(reset){
+  const f = $("#feed");
+  if (reset){ f.replaceChildren(); rendered = 0; }
+  const atBottom = f.scrollHeight - f.scrollTop - f.clientHeight < 60;
+  for (; rendered < S.feed.length; rendered++){ const l = evLine(S.feed[rendered]); if (l) f.append(l); }
+  if (!f.children.length) f.append(h("div",{class:"empty"}, "Inject a fault on the left, then press Run triage. Or replay a recorded run."));
+  else { const e = f.querySelector(".empty"); if (e && f.children.length > 1) e.remove(); }
+  if (atBottom) f.scrollTop = f.scrollHeight;
+}
+
+function renderDecisions(){
+  const el = $("#decisions"); el.replaceChildren();
+  if (S.outcome){
+    const st = S.outcome.status, cls = st==="resolved"||st==="no_incident" ? "good" : st.includes("dry_run")||st.includes("partly") ? "mid" : "bad";
+    el.append(h("div",{class:"outcome "+cls}, st.replaceAll("_"," ").toUpperCase(), S.outcome.notes && S.outcome.notes.length ? h("div",{class:"small",style:"font-weight:400;margin-top:4px"}, S.outcome.notes.join(" · ")) : null));
+  }
+  if (S.pending){
+    const box = h("div",{class:"approval"}, h("b",{}, "Your decision is needed"), h("div",{class:"small muted"}, "The code would not run these steps on its own. Approve only what you would do yourself."));
+    const picks = {};
+    for (const s of S.pending.steps){
+      const cb = h("input",{type:"checkbox"}); picks[s.step] = cb;
+      box.append(h("label",{class:"row"}, cb, h("div",{}, h("b",{}, s.action), ` · "${s.fix}"`,
+        h("div",{class:"small muted"}, s.checks.filter(c=>!c.ok).map(c=>`${c.check}: ${c.detail}`).join(" · ")))));
+    }
+    box.append(h("div",{style:"display:flex;gap:8px;margin-top:8px"},
+      h("button",{class:"btn primary", onclick:()=>decide(Object.entries(picks).filter(([k,c])=>c.checked).map(([k])=>+k))}, "Approve selected"),
+      h("button",{class:"btn", onclick:()=>decide([])}, "Reject")));
+    el.append(box);
+  }
+  if (S.abnormal.length){ el.append(h("h3",{},"What the monitor measured")); el.append(h("ul",{class:"facts small"}, S.abnormal.map(x=>h("li",{},x)))); }
+  const comps = Object.entries(S.specs).filter(([n,s])=>s.finding);
+  if (comps.length){
+    el.append(h("h3",{},"Specialist findings"));
+    for (const [n,s] of comps){ const fi = s.finding;
+      el.append(h("div",{class:"card"}, h("div",{class:"hd"}, h("b",{}, n), h("span",{}, h("span",{class:"badge "+fi.status}, fi.status), " ",
+        fi.grounded ? h("span",{class:"badge ok", title:"cites tool results it really made"},"✓ evidence") : h("span",{class:"badge warn"},"no evidence"))),
+        h("div",{class:"small",style:"margin-top:4px"}, fi.summary),
+        fi.evidence && fi.evidence.length ? h("div",{class:"small muted"}, "cites "+fi.evidence.join(", ")) : null,
+        fi.note ? h("div",{class:"small",style:"color:var(--warn)"}, fi.note) : null)); }
+  }
+  if (S.diags.length){
+    const d = S.diags[S.diags.length-1];
+    el.append(h("h3",{}, S.diags.length>1 ? "Commander plan (revised)" : "Commander plan"));
+    el.append(h("div",{class:"card"}, h("div",{}, d.root_cause), h("ol",{style:"margin:6px 0 0;padding-left:18px"}, d.steps.map(s=>h("li",{class:"small"}, `[${s.component}] ${s.fix}`))),
+      h("div",{class:"small muted"}, `confidence ${d.confidence}`)));
+  }
+  if (S.crits.length){ const c = S.crits[S.crits.length-1];
+    el.append(h("div",{class:"card"}, h("div",{class:"hd"}, h("b",{},"Critic"), h("span",{class:"badge "+(c.verdict==="approve"?"ok":"warn")}, c.verdict)), h("div",{class:"small",style:"margin-top:4px"}, c.reason))); }
+  const steps = Object.values(S.plan);
+  if (steps.length){
+    el.append(h("h3",{},"Code gate, per step"));
+    for (const s of steps){
+      el.append(h("div",{class:"card"}, h("div",{class:"hd"}, h("b",{}, `${s.step+1}. ${s.action}`), h("span",{class:"badge "+s.decision}, s.decision.replace("_"," "))),
+        h("div",{class:"small muted",style:"margin-top:3px"}, `"${s.fix}"`),
+        h("div",{class:"checks"}, s.checks.map(c=>h("div",{class:"check"}, h("span",{class:"i "+(c.ok?"ok":"no")}, c.ok?"✓":"✗"), h("span",{class:"c"}, c.check), h("span",{}, c.detail))))));
+    }
+  }
+  if (S.human){ el.append(h("div",{class:"card small"}, `Human decision: ${S.human.approved.length ? "approved "+S.human.approved.map(i=>"step "+(i+1)).join(", ") : "rejected"} (${S.human.by})`)); }
+  if (S.actions.length){
+    el.append(h("h3",{},"Actions"));
+    for (const a of S.actions) el.append(h("div",{class:"card small"}, h("div",{class:"hd"}, h("b",{}, a.action), h("span",{class:"badge "+(a.status==="executed"?"ok":a.status==="would_execute"?"neutral":"warn")}, a.status)), h("div",{class:"muted"}, a.reason||"")));
+  }
+  if (S.verification){ const v = S.verification;
+    el.append(h("h3",{},"Verification (code, never the model)"));
+    el.append(h("div",{class:"card small"}, h("div",{class:"hd"}, h("b",{}, v.expected_signal || "health"), h("span",{class:"badge "+(v.verified?"ok":"bad")}, v.verified?"verified":"not verified")), h("div",{}, v.reason))); }
+  if (!el.children.length) el.append(h("div",{class:"empty"}, "Findings, the plan, every code check and the outcome appear here."));
+}
+function renderAll(reset){ renderFlow(); renderFeed(reset); renderDecisions(); }
+
+/* ---------------- topology ---------------- */
+let topo = null;
+function colorFor(state){ return state==="running" ? "var(--ok)" : (state==="paused"||state==="degraded") ? "var(--warn)" : state ? "var(--bad)" : "var(--unk)"; }
+function renderTopo(){
+  if (!topo) return;
+  const c = topo.containers, pg = c["opsmind-postgres"], app = c["opsmind-app"], rd = c["opsmind-redis"];
+  const onNet = x => x && x.networks && Object.keys(x.networks).length > 0;
+  const ah = topo.app_health || {};
+  const linkPg = pg.state==="running" && app.state==="running" && onNet(pg) && onNet(app) && ah.db_ok !== false;
+  const linkRd = rd.state==="running" && app.state==="running" && onNet(rd) && ah.redis_ok !== false;
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns,"svg"); svg.setAttribute("viewBox","0 0 280 190");
+  const add = (tag, attrs, text) => { const e = document.createElementNS(ns, tag); for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); if (text!==undefined) e.textContent = text; svg.append(e); return e; };
+  add("line",{x1:140,y1:56,x2:66,y2:128,stroke: linkPg?"#2f6b55":"var(--bad)","stroke-width":2,"stroke-dasharray":linkPg?"":"5 4"});
+  add("line",{x1:140,y1:56,x2:214,y2:128,stroke: linkRd?"#2f6b55":"var(--bad)","stroke-width":2,"stroke-dasharray":linkRd?"":"5 4"});
+  const box = (x,y,label,sub,state) => { add("rect",{x:x-56,y:y-22,width:112,height:44,rx:9,fill:"#171d2b",stroke:colorFor(state),"stroke-width":2});
+    add("circle",{cx:x-44,cy:y-9,r:4,fill:colorFor(state)}); add("text",{x:x-35,y:y-5,class:"tlabel"},label); add("text",{x:x-44,y:y+13,class:"tsub"},sub); };
+  box(140,34,"web app", `${app.state||"?"} · /health ${ah.status ?? "—"}`, app.state==="running" && ah.status!==200 ? "degraded" : app.state);
+  box(66,150,"postgres", `${pg.state||"?"}${onNet(pg)?"":" · no network"}`, onNet(pg) ? pg.state : "detached");
+  box(214,150,"redis", `${rd.state||"?"}`, rd.state);
+  $("#topo").replaceChildren(svg);
+  const canon = o => JSON.stringify(Object.keys(o||{}).sort().map(k=>[k,o[k]]));
+  const cfgDiff = topo.live_config && topo.known_good && canon(topo.live_config) !== canon(topo.known_good);
+  const kv = $("#topoKv"); kv.replaceChildren(
+    h("span",{},"app reports"), h("span",{class:"mono"}, `db_ok=${ah.db_ok} redis_ok=${ah.redis_ok}`),
+    h("span",{},"live config"), h("span",{class:"mono", style: cfgDiff ? "color:var(--bad)":""}, topo.live_config ? `db_host=${topo.live_config.db_host} db_port=${topo.live_config.db_port}` : "—"),
+    h("span",{},"deploy"), h("span",{}, cfgDiff ? "differs from last good deploy" : "matches last good deploy"));
+  $("#pOllama .dot").className = "dot " + (topo.ollama ? "ok":"bad");
+  $("#pDocker .dot").className = "dot " + ([pg,app,rd].every(x=>x.state==="running") ? "ok" : [pg,app,rd].some(x=>x.state) ? "warn" : "bad");
+  const pb = $("#pauseBtn"); pb.textContent = topo.paused ? "Automation PAUSED (resume)" : "Pause automation";
+  pb.style.background = topo.paused ? "#3b1d1d" : "";
+}
+async function pollTopo(){ try { topo = await api("/api/topology"); renderTopo(); if (!faultsDrawn) drawFaults(); } catch(e){} }
+let faultsDrawn = false;
+function drawFaults(){
+  const box = $("#faults"); box.replaceChildren();
+  for (const [name, desc] of Object.entries(topo.faults || {})){
+    box.append(h("div",{class:"fault"}, h("div",{class:"d"}, name, h("small",{}, desc)),
+      h("div",{class:"b"}, h("button",{class:"btn small", onclick:e=>fault(name,"inject",e.target)}, "inject"),
+        h("button",{class:"btn small", onclick:e=>fault(name,"clear",e.target)}, "clear"))));
+  }
+  faultsDrawn = true;
+}
+async function fault(name, op, btn){
+  btn.disabled = true; const old = btn.textContent; btn.textContent = "…";
+  try { const r = await api(`/api/faults/${name}/${op}`, {method:"POST"}); toast(`${name} ${op}: ${r.message||"done"}`); }
+  catch(e){ toast(`${name} ${op} failed: ${e.message}`); }
+  btn.disabled = false; btn.textContent = old; pollTopo();
+}
+
+/* ---------------- runs: live + replay ---------------- */
+let mode = "dry", source = null, replayTimer = null;
+$("#mDry").onclick = () => { mode="dry"; $("#mDry").className="on"; $("#mLive").className=""; };
+$("#mLive").onclick = () => { mode="live"; $("#mLive").className="on live"; $("#mDry").className=""; toast("Live: steps the code approves will really change the test stack."); };
+$("#pauseBtn").onclick = async () => { try { await api("/api/pause",{method:"POST", body:JSON.stringify({on: !(topo && topo.paused)})}); pollTopo(); } catch(e){ toast(e.message) } };
+$("#runBtn").onclick = async () => {
+  try {
+    const r = await api("/api/runs",{method:"POST", body:JSON.stringify({mode, hitl: $("#hitl").checked})});
+    startView(r.run_id); follow(r.run_id);
+    toast(`Run ${r.run_id} started (${r.dry_run?"dry run":"LIVE"})`);
+  } catch(e){ toast(e.message); }
+};
+function startView(runId){ stopAll(); S = fresh(); S.runId = runId; renderAll(true); }
+function stopAll(){ if (source){ source.close(); source = null; } if (replayTimer){ clearTimeout(replayTimer); replayTimer=null; } }
+function follow(runId){
+  $("#runBtn").disabled = true;
+  source = new EventSource(`/api/runs/${runId}/stream`);
+  source.onmessage = m => { reduce(JSON.parse(m.data)); renderAll(false); };
+  source.addEventListener("pending", m => { if (!S.pending){ S.pending = JSON.parse(m.data); renderAll(false); } });
+  source.addEventListener("end", () => { source.close(); source=null; $("#runBtn").disabled=false; pollTopo(); });
+  source.addEventListener("error", m => { if (m.data){ toast("Run error: "+JSON.parse(m.data).error); } $("#runBtn").disabled=false; });
+}
+async function decide(steps){
+  try { await api(`/api/runs/${S.runId}/decision`,{method:"POST", body:JSON.stringify({approve:steps})}); S.pending = null; renderAll(false); }
+  catch(e){ toast(e.message); }
+}
+$("#runsBtn").onclick = async () => {
+  const box = $("#runs");
+  if (box.style.display === "block"){ box.style.display="none"; return; }
+  const list = await api("/api/runs");
+  box.replaceChildren(h("div",{style:"padding:10px 12px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--line)"}, h("b",{},"Recorded runs"), h("span",{class:"spacer"}),
+    h("label",{class:"chk"},"speed ", (()=>{ const s=h("select",{id:"speed",class:"btn small"}); for (const v of ["1","3","10","0"]) s.append(h("option",{value:v}, v==="0"?"instant":v+"×")); s.value="3"; return s; })())));
+  for (const r of list){
+    box.append(h("div",{class:"r", onclick:()=>{ box.style.display="none"; replay(r.run_id); }},
+      h("div",{class:"hd",style:"display:flex;justify-content:space-between"}, h("span",{class:"mono"}, r.run_id), h("span",{class:"badge "+((r.outcome&&r.outcome.status)==="resolved"?"ok":"neutral")}, r.outcome ? r.outcome.status.replaceAll("_"," ") : "in progress")),
+      h("div",{class:"small muted"}, `${r.seconds ?? "?"} s · ${r.specialists.join(", ") || "no specialists"}`), r.root_cause ? h("div",{class:"small"}, r.root_cause) : null));
+  }
+  if (!list.length) box.append(h("div",{class:"r empty"},"No recorded runs yet."));
+  box.style.display = "block";
+};
+async function replay(runId){
+  startView(runId);
+  const evs = await api(`/api/runs/${runId}/events`);
+  const speed = +(document.getElementById("speed")||{value:"3"}).value || 0;
+  let i = 0;
+  const step = () => {
+    if (i >= evs.length){ replayTimer = null; return; }
+    reduce(evs[i]); i++;
+    renderAll(false);
+    if (i < evs.length){
+      const gap = speed ? Math.min((evs[i].t - evs[i-1].t) * 1000 / speed, 2500) : 0;
+      replayTimer = setTimeout(step, gap);
+    }
+  };
+  if (!speed){ for (const e of evs) reduce(e); renderAll(true); } else step();
+}
+document.addEventListener("click", e => { const b=$("#runs"); if (b.style.display==="block" && !b.contains(e.target) && e.target.id!=="runsBtn") b.style.display="none"; });
+
+renderAll(true); pollTopo(); setInterval(pollTopo, 2000);
+</script>
+</body>
+</html>

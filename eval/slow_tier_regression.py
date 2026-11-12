@@ -62,6 +62,10 @@ def load_incidents():
                 recs.append(row["record"])
     seen, out = set(), []
     for r in recs:
+        # v2 graph runs (engine "opsgraph") are measured by eval/graph_eval.py; this gate keeps
+        # replaying the v1 incident set so its thresholds stay comparable over time.
+        if r.get("engine") == "opsgraph":
+            continue
         if r["run_id"] not in seen and r["decision"]["escalate"] and knowledge.matched_faults(r["signal"]):
             seen.add(r["run_id"])
             out.append(r)

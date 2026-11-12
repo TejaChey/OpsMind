@@ -94,3 +94,16 @@ class PolicyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LongReconnectProposals(unittest.TestCase):
+    """Found by the multi-agent evaluation: long reconnect proposals failed closed."""
+    def test_long_database_reconnect_maps(self):
+        for t in ("Reconnect the PostgreSQL container to the services_default network.",
+                  "Reconnect the opsmind-postgres container to its Docker network to ensure it can be reached by other containers."):
+            self.assertEqual(map_action(t), Action.RECONNECT_NETWORK, t)
+
+    def test_reconnecting_the_app_goes_to_a_human(self):
+        for t in ("Reconnect the application container to the same Docker network as the database container.",
+                  "Reconnect the `opsmind-app` container to its Docker network to ensure proper DNS resolution."):
+            self.assertEqual(map_action(t), Action.UNKNOWN_NEEDS_HUMAN, t)

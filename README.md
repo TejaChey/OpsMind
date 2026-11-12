@@ -12,7 +12,28 @@ a safety-critical decision alone. Escalation has a deterministic code floor, act
 through a rule-based mapper and a policy gate, and "did the fix work?" is answered by a code
 health check, never by asking a model.
 
-## Architecture
+## OpsMind v2: multi-agent graph and live console
+
+The incident pipeline also runs as a LangGraph multi-agent graph (`opsgraph/`): a code router
+sends database, network, application and cache specialist agents in parallel (each with its own
+read-only tools, and findings must cite the tool results behind them), a commander agent plans
+one or two steps, a critic agent and a code review check the plan, and code still decides every
+action (mapper, policy, evidence, target, governor, step order, verification). Steps the code
+will not run alone pause for a person (LangGraph interrupt). Design and rationale:
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). How it compares with the v1 pipeline:
+[eval/results/graph_eval_NOTES.md](eval/results/graph_eval_NOTES.md).
+
+```bash
+python -m console.server        # live console at http://127.0.0.1:8765
+python -m opsgraph.run          # one dry run in the terminal (add --live --hitl to act)
+```
+
+The console shows the system topology changing as faults are injected and fixed, every agent's
+tool calls and evidence, each code check per step, approval buttons when a person is needed,
+and the verification result. Any recorded run can be replayed, which also works without Docker
+or Ollama.
+
+## Architecture (v1 pipeline)
 
 ```mermaid
 flowchart TD
