@@ -471,10 +471,11 @@ $("#runsBtn").onclick = async () => {
   if (!list.length) box.append(h("div",{class:"r empty"},"No recorded runs yet."));
   box.style.display = "block";
 };
-async function replay(runId){
+async function replay(runId, speedOverride){
   startView(runId);
   const evs = await api(`/api/runs/${runId}/events`);
-  const speed = +(document.getElementById("speed")||{value:"3"}).value || 0;
+  const speed = speedOverride !== undefined ? speedOverride
+    : +(document.getElementById("speed")||{value:"3"}).value || 0;
   let i = 0;
   const step = () => {
     if (i >= evs.length){ replayTimer = null; return; }
@@ -490,6 +491,9 @@ async function replay(runId){
 document.addEventListener("click", e => { const b=$("#runs"); if (b.style.display==="block" && !b.contains(e.target) && e.target.id!=="runsBtn") b.style.display="none"; });
 
 renderAll(true); pollTopo(); setInterval(pollTopo, 2000);
+// Deep link: /?run=<run_id>&speed=<0|1|3|10> opens a recorded run (0 = instantly).
+{ const q = new URLSearchParams(location.search);
+  if (q.get("run")) replay(q.get("run"), q.has("speed") ? +q.get("speed") : 3); }
 </script>
 </body>
 </html>
