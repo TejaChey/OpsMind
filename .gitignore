@@ -5,3 +5,13 @@ OPSMIND_BRIEF.md
 # runtime deploy state (history + live config)
 deploys/history.jsonl
 deploys/live/
+VERIFY_WITH_CLAUDE.md
+DEMO_COMMANDS.txt
+CLAUDE.md
+# kill switch: a committed copy would pause automation for everyone who checks out the repo
+OPSMIND_PAUSED
+.DS_Store
+# kept local on purpose: paper, professor prep, assistant notes
+paper/
+docs/PROFESSOR_QA.md
+.claude/
